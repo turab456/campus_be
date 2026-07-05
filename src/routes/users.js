@@ -1,0 +1,20 @@
+// backend/src/routes/users.js
+const express = require('express');
+const { getProfile, updateProfile, getUserDetails } = require('../controllers/userController');
+const reviewController = require('../controllers/reviewController');
+const protect = require('../middlewares/auth');
+const { uploadAvatar } = require('../middlewares/upload');
+const { validateAddReview } = require('../middlewares/validators');
+
+const reconsiderationController = require('../controllers/reconsiderationController');
+
+const router = express.Router();
+
+router.get('/me', protect, getProfile);
+router.put('/me', protect, uploadAvatar, updateProfile);
+router.post('/reconsideration-tickets', protect, reconsiderationController.createTicket);
+router.get('/reconsideration-tickets/my-status', protect, reconsiderationController.getMyStatus);
+router.get('/:id', protect, getUserDetails);
+router.post('/:sellerId/reviews', protect, validateAddReview, reviewController.addReview);
+
+module.exports = router;

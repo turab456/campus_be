@@ -1,0 +1,92 @@
+// backend/src/controllers/userController.js
+const User = require('../models/User');
+const { logger } = require('../utils/logger');
+const cloudinaryHelper = require('../helpers/cloudinaryHelper');
+
+// @desc   Get current user profile
+// @route  GET /api/users/me
+// @access Private (protect middleware)
+const getProfile = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    res.json({ success: true, user });
+  } catch (error) {
+    logger.error('Get profile error', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc   Update current user profile (name, avatar)
+// @route  PUT /api/users/me
+// @access Private
+const updateProfile = async (req, res) => {
+  const { name } = req.body;
+  try {
+    const updateFields = {};
+    if (name) updateFields.name = name;
+    // If an avatar image is provided (base64 or multipart), upload to Cloudinary
+    if (req.file) {
+      const imageUrl = await cloudinaryHelper.uploadFromBuffer(req.file.buffer);
+      updateFields.avatarUrl = imageUrl;
+    }
+    const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, runValidators: true }).select('-password');
+    res.json({ success: true, user });
+  } catch (error) {
+    logger.error('Update profile error', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc   Get user details by ID
+// @route  GET /api/users/:id
+// @access Private
+const getUserDetails = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    // Fetch listings for this user
+    const Listing = require('../models/Listing');
+    const listings = await Listing.find({ seller: user._id })
+      .populate('seller', 'name avatarUrl')
+      .populate('category', 'name');
+      
+    // Fetch reviews for this user
+    const Review = require('../models/Review');
+    const reviews = await Review.find({ seller: user._id })
+      .populate('reviewer', 'name avatarUrl')
+      .sort({ createdAt: -1 });
+
+    const mappedReviews = reviews.map(r => ({
+      id: r._id.toString(),
+      reviewerName: r.reviewer ? r.reviewer.name : 'Student',
+      reviewerAvatar: r.reviewer && r.reviewer.avatarUrl ? r.reviewer.avatarUrl : 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      rating: r.rating,
+      comment: r.comment,
+      createdAt: r.createdAt.toISOString()
+    }));
+      
+    res.json({
+      success: true,
+      user: {
+        ...user.toObject(),
+        avatar: user.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        rating: user.rating || 5.0,
+        reviewsCount: user.reviewsCount || 0,
+        joinedDate: user.createdAt,
+      },
+      listings,
+      reviews: mappedReviews,
+    });
+  } catch (error) {
+    logger.error('Get user details error', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+module.exports = { getProfile, updateProfile, getUserDetails };
