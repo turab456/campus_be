@@ -32,7 +32,11 @@ app.disable('x-powered-by');
 // Global middlewares
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173' || 'http://192.168.31.124:5173',
+  origin: [
+    process.env.CLIENT_URL,
+    "http://localhost:5173",
+    "http://192.168.31.124:5173"
+  ],
   credentials: true,
 }));
 app.use(compression());
