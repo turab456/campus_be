@@ -24,7 +24,7 @@ const checkBlocked = async (req, res, next) => {
       return res.status(403).json({
         success: false,
         blocked: true,
-        message: 'Your account has been suspended due to policy violations',
+        message: 'Your account is blocked due to suspicious activity. Please raise a ticket for reconsideration in the profile section.',
         blockReason: user.blockReason,
         blockedAt: user.blockedAt,
         supportEmail: 'support@campus-marketplace.edu'

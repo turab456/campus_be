@@ -7,6 +7,8 @@ const {
   deleteUser,
   flagUser,
   unflagUser,
+  blockUser,
+  unblockUser,
   getAllListings,
   getListingDetails,
   approveListing,
@@ -41,6 +43,8 @@ router.get('/users/:userId', getUserDetails);
 router.delete('/users/:userId', deleteUser);
 router.post('/users/:userId/flag', flagUser);
 router.post('/users/:userId/unflag', unflagUser);
+router.post('/users/:userId/block', blockUser);
+router.post('/users/:userId/unblock', unblockUser);
 
 // Listing Management
 router.get('/listings', getAllListings);

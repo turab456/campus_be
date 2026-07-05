@@ -11,6 +11,7 @@ const userSchema = new mongoose.Schema({
   semester: { type: Number },
   avatarUrl: { type: String },
   isVerified: { type: Boolean, default: false },
+  verificationToken: { type: String },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },
   wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Listing' }],
   rating: { type: Number, default: 5.0 },

@@ -24,7 +24,7 @@ exports.getMessages = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to view this conversation' });
     }
 
-    const messages = await Message.find({ chat: chatId }).sort({ timestamp: 1 });
+    const messages = await Message.find({ chat: chatId, flagged: { $ne: true } }).sort({ timestamp: 1 });
     
     const mappedMessages = messages.map(m => ({
       id: m._id.toString(),

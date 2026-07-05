@@ -213,6 +213,49 @@ exports.unflagUser = async (req, res) => {
   }
 };
 
+exports.blockUser = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.params.userId,
+      { blocked: true, blockReason: reason, blockedAt: new Date() },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    logger.info(`User ${user.email} blocked. Reason: ${reason}`);
+
+    res.json({ success: true, message: 'User blocked/deactivated successfully', data: user });
+  } catch (error) {
+    logger.error('Block user error', error);
+    res.status(500).json({ success: false, message: 'Error blocking user' });
+  }
+};
+
+exports.unblockUser = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.userId,
+      { blocked: false, blockReason: null, blockedAt: null },
+      { new: true }
+    );
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    logger.info(`User ${user.email} unblocked`);
+
+    res.json({ success: true, message: 'User unblocked/activated successfully', data: user });
+  } catch (error) {
+    logger.error('Unblock user error', error);
+    res.status(500).json({ success: false, message: 'Error unblocking user' });
+  }
+};
+
 // Listing Management
 exports.getAllListings = async (req, res) => {
   try {

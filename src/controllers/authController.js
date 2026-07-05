@@ -39,7 +39,7 @@ const register = async (req, res) => {
         html: `<p>Hello ${user.name},</p><p>Please verify your email by clicking <a href="${verificationUrl}">here</a>.</p>`,
       });
     } catch (mailError) {
-      logger.error('Failed to send verification email, but user was created.', mailError.message);
+      logger.error(`Failed to send verification email, but user was created. Error: ${mailError.stack || mailError}`);
     }
     res.status(201).json({ success: true, message: 'Registration successful' });
   } catch (error) {
@@ -55,8 +55,11 @@ const verifyEmail = async (req, res) => {
   const { token, id } = req.query;
   try {
     const user = await User.findById(id);
-    if (!user || user.isVerified) {
+    if (!user) {
       return res.status(400).json({ success: false, message: 'Invalid request' });
+    }
+    if (user.isVerified) {
+      return res.json({ success: true, message: 'Email already verified. You can now log in.' });
     }
     if (user.verificationToken !== token) {
       return res.status(400).json({ success: false, message: 'Invalid token' });
@@ -86,13 +89,21 @@ const login = async (req, res) => {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
     }
 
+    // Verify email is confirmed before allowing login (admins bypassed for prototype ease)
+    if (user.role !== 'admin' && !user.isVerified) {
+      return res.status(403).json({ 
+        success: false, 
+        message: 'Please verify your email address before logging in. Check your inbox for the verification link.' 
+      });
+    }
+
     // Safety: check if user is blocked or flagged (admin bypass allowed)
     if (user.role !== 'admin') {
       if (user.blocked) {
         return res.status(403).json({
           success: false,
           blocked: true,
-          message: 'Your account has been suspended due to policy violations.',
+          message: 'Your account is blocked due to suspicious activity. Please raise a ticket for reconsideration in the profile section.',
           blockReason: user.blockReason
         });
       }

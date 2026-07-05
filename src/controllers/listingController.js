@@ -246,47 +246,28 @@ const deleteListing = async (req, res) => {
 };
 
 // @desc   Search listings (public)
-// @route  GET /api/listings?search=...&category=...&page=1&limit=10
+// @route  GET /api/listings/search?search=..&category=..&condition=..&minPrice=..&maxPrice=..&sort=..
 // @access Public
 const searchListings = async (req, res) => {
   // Clamp page and limit to safe bounds
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
-  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 10));
-  const { search, category } = req.query;
+  const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
+  const { search, category, condition, minPrice, maxPrice, sort } = req.query;
 
-  const filter = {};
+  const filter = { isSold: false }; // Only show listings that haven't been sold
 
-  // Exclude current user's listings if authenticated
-  let currentUserId = null;
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      const token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, accessSecret);
-      currentUserId = decoded.id;
-    } catch (e) {
-      // Ignore invalid/expired tokens for public search
-    }
-  } else if (req.cookies && req.cookies.token) {
-    try {
-      const decoded = jwt.verify(req.cookies.token, accessSecret);
-      currentUserId = decoded.id;
-    } catch (e) {
-      // Ignore
-    }
-  }
 
-  if (currentUserId) {
-    filter.seller = { $ne: currentUserId };
-  }
 
+  // Full-text search on title and description
   if (search) {
-    // Escape user input to prevent ReDoS attacks
     const escapedSearch = escapeRegex(search);
     filter.$or = [
       { title: { $regex: escapedSearch, $options: 'i' } },
       { description: { $regex: escapedSearch, $options: 'i' } }
     ];
   }
+
+  // Category filter
   if (category) {
     if (mongoose.Types.ObjectId.isValid(category)) {
       filter.category = category;
@@ -298,18 +279,41 @@ const searchListings = async (req, res) => {
       if (categoryDoc) {
         filter.category = categoryDoc._id;
       } else {
-        // Category slug doesn't exist, return empty results
         return res.json({ success: true, listings: [], total: 0, page, pages: 0 });
       }
     }
   }
+
+  // Condition filter (comma-separated values e.g. "New,Like New")
+  if (condition) {
+    const conditions = condition.split(',').map(c => c.trim()).filter(Boolean);
+    if (conditions.length > 0) {
+      filter.condition = { $in: conditions };
+    }
+  }
+
+  // Price range filter
+  if (minPrice || maxPrice) {
+    filter.price = {};
+    if (minPrice) filter.price.$gte = Number(minPrice);
+    if (maxPrice) filter.price.$lte = Number(maxPrice);
+  }
+
+  // Sort options
+  let sortOption = { createdAt: -1 }; // default: most recent
+  if (sort === 'price_asc') sortOption = { price: 1 };
+  else if (sort === 'price_desc') sortOption = { price: -1 };
+  else if (sort === 'oldest') sortOption = { createdAt: 1 };
+
   try {
+    console.log('[Search Debug] Filter:', JSON.stringify(filter));
     const listings = await Listing.find(filter)
       .populate('seller', 'name avatarUrl spamScore scamScore')
       .populate('category', 'name')
       .skip((page - 1) * limit)
       .limit(limit)
-      .sort({ createdAt: -1 });
+      .sort(sortOption);
+    console.log('[Search Debug] Found:', listings.length, 'listings');
     const total = await Listing.countDocuments(filter);
     res.json({ success: true, listings, total, page, pages: Math.ceil(total / limit) });
   } catch (error) {
