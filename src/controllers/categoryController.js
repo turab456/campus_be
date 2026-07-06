@@ -1,14 +1,24 @@
 // backend/src/controllers/categoryController.js
 const Category = require('../models/Category');
 const { logger } = require('../utils/logger');
+const { getCache, setCache, clearCache } = require('../utils/redis');
 
 // @desc   Get all categories (public)
 // @route  GET /api/categories
 // @access Public
 const getAll = async (req, res) => {
   try {
+    const cacheKey = 'categories:all';
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      logger.info('[Cache Hit] Serving categories from cache.');
+      return res.json(cachedData);
+    }
+
     const categories = await Category.find().sort({ name: 1 });
-    res.json({ success: true, categories });
+    const responseData = { success: true, categories };
+    await setCache(cacheKey, responseData, 3600); // Cache for 1 hour
+    res.json(responseData);
   } catch (error) {
     logger.error('Get categories error', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -26,6 +36,8 @@ const createCategory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Category already exists' });
     }
     const category = await Category.create({ name, icon });
+    await clearCache('categories:all');
+    await clearCache('listings:*');
     res.status(201).json({ success: true, category });
   } catch (error) {
     logger.error('Create category error', error);
@@ -46,6 +58,8 @@ const updateCategory = async (req, res) => {
     if (name) category.name = name;
     if (icon) category.icon = icon;
     await category.save();
+    await clearCache('categories:all');
+    await clearCache('listings:*');
     res.json({ success: true, category });
   } catch (error) {
     logger.error('Update category error', error);
@@ -63,6 +77,8 @@ const deleteCategory = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Category not found' });
     }
     await Category.deleteOne({ _id: category._id });
+    await clearCache('categories:all');
+    await clearCache('listings:*');
     res.json({ success: true, message: 'Category removed' });
   } catch (error) {
     logger.error('Delete category error', error);

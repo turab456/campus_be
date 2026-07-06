@@ -4,6 +4,7 @@ const Listing = require('../models/Listing');
 const Category = require('../models/Category');
 const User = require('../models/User');
 const { logger } = require('../utils/logger');
+const { getCache, setCache, clearCache } = require('../utils/redis');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 const jwt = require('jsonwebtoken');
 const { accessSecret } = require('../config/jwt');
@@ -96,6 +97,8 @@ const createListing = async (req, res) => {
       isPopular: isPopular || false,
       metadata: metadata || {}
     });
+    // Invalidate listings caches
+    await clearCache('listings:*');
     res.status(201).json({ success: true, listing });
   } catch (error) {
     logger.error('Create listing error', error);
@@ -222,6 +225,8 @@ const updateListing = async (req, res) => {
     if (metadata !== undefined) listing.metadata = metadata;
 
     await listing.save();
+    // Invalidate listings caches
+    await clearCache('listings:*');
     res.json({ success: true, listing });
   } catch (error) {
     logger.error('Update listing error', error);
@@ -245,6 +250,8 @@ const deleteListing = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
     await Listing.deleteOne({ _id: listing._id });
+    // Invalidate listings caches
+    await clearCache('listings:*');
     res.json({ success: true, message: 'Listing removed' });
   } catch (error) {
     logger.error('Delete listing error', error);
@@ -313,6 +320,13 @@ const searchListings = async (req, res) => {
   else if (sort === 'oldest') sortOption = { createdAt: 1 };
 
   try {
+    const cacheKey = `listings:search:${JSON.stringify(req.query)}`;
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      logger.info(`[Cache Hit] Serving search listings for key: ${cacheKey}`);
+      return res.json(cachedData);
+    }
+
     // Exclude listings from flagged or blocked users
     const restrictedUsers = await User.find({
       $or: [{ blocked: true }, { flagged: true }]
@@ -329,7 +343,11 @@ const searchListings = async (req, res) => {
       .sort(sortOption);
     console.log('[Search Debug] Found:', listings.length, 'listings');
     const total = await Listing.countDocuments(filter);
-    res.json({ success: true, listings, total, page, pages: Math.ceil(total / limit) });
+
+    const responseData = { success: true, listings, total, page, pages: Math.ceil(total / limit) };
+    // Cache search results for 5 minutes (300 seconds)
+    await setCache(cacheKey, responseData, 300);
+    res.json(responseData);
   } catch (error) {
     logger.error('Search listings error', error);
     res.status(500).json({ success: false, message: 'Server error' });

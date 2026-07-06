@@ -7,6 +7,7 @@ const Review = require('../models/Review');
 const FraudReport = require('../models/FraudReport');
 const { logger } = require('../utils/logger');
 const { sendPushNotification } = require('../utils/fcm');
+const { clearCache } = require('../utils/redis');
 
 // Dashboard
 exports.getDashboard = async (req, res) => {
@@ -162,6 +163,9 @@ exports.deleteUser = async (req, res) => {
     // Delete user
     await User.findByIdAndDelete(req.params.userId);
 
+    await clearCache(`user:profile:${req.params.userId}`);
+    await clearCache('listings:*');
+
     logger.info(`User ${user.email} deleted by admin. Reason: ${reason}`);
 
     res.json({ success: true, message: 'User deleted successfully' });
@@ -185,6 +189,9 @@ exports.flagUser = async (req, res) => {
     }
 
     logger.info(`User ${user.email} flagged. Reason: ${reason}`);
+
+    await clearCache(`user:profile:${req.params.userId}`);
+    await clearCache('listings:*');
 
     // Send FCM push alert asynchronously
     sendPushNotification(user._id, {
@@ -213,6 +220,9 @@ exports.unflagUser = async (req, res) => {
     }
 
     logger.info(`User ${user.email} unflagged`);
+
+    await clearCache(`user:profile:${req.params.userId}`);
+    await clearCache('listings:*');
 
     // Send FCM push alert asynchronously
     sendPushNotification(user._id, {
@@ -243,6 +253,9 @@ exports.blockUser = async (req, res) => {
 
     logger.info(`User ${user.email} blocked. Reason: ${reason}`);
 
+    await clearCache(`user:profile:${req.params.userId}`);
+    await clearCache('listings:*');
+
     res.json({ success: true, message: 'User blocked/deactivated successfully', data: user });
   } catch (error) {
     logger.error('Block user error', error);
@@ -263,6 +276,9 @@ exports.unblockUser = async (req, res) => {
     }
 
     logger.info(`User ${user.email} unblocked`);
+
+    await clearCache(`user:profile:${req.params.userId}`);
+    await clearCache('listings:*');
 
     res.json({ success: true, message: 'User unblocked/activated successfully', data: user });
   } catch (error) {
@@ -331,6 +347,8 @@ exports.approveListing = async (req, res) => {
 
     logger.info(`Listing ${listing._id} approved`);
 
+    await clearCache('listings:*');
+
     res.json({ success: true, message: 'Listing approved', data: listing });
   } catch (error) {
     logger.error('Approve listing error', error);
@@ -353,6 +371,8 @@ exports.rejectListing = async (req, res) => {
 
     logger.info(`Listing ${listing._id} rejected. Reason: ${reason}`);
 
+    await clearCache('listings:*');
+
     res.json({ success: true, message: 'Listing rejected', data: listing });
   } catch (error) {
     logger.error('Reject listing error', error);
@@ -370,6 +390,8 @@ exports.deleteListing = async (req, res) => {
     }
 
     await Listing.findByIdAndDelete(req.params.listingId);
+
+    await clearCache('listings:*');
 
     logger.info(`Listing ${listing._id} deleted. Reason: ${reason}`);
 
@@ -394,6 +416,8 @@ exports.flagListing = async (req, res) => {
     }
 
     logger.info(`Listing ${listing._id} flagged. Reason: ${reason}`);
+
+    await clearCache('listings:*');
 
     res.json({ success: true, message: 'Listing flagged', data: listing });
   } catch (error) {
@@ -443,11 +467,14 @@ exports.createFraudReport = async (req, res) => {
         flagged: true,
         scamScore: Math.min(score, 100)
       });
+      await clearCache(`user:profile:${itemId}`);
+      await clearCache('listings:*');
     } else if (itemType === 'listing') {
       await Listing.findByIdAndUpdate(itemId, {
         flagged: true,
         fraudScore: Math.min(score, 100)
       });
+      await clearCache('listings:*');
     }
 
     res.json({ success: true, message: 'Fraud report created' });
@@ -568,6 +595,8 @@ exports.reportSpam = async (req, res) => {
         flagged: true,
         spamScore: Math.min(75, 100)
       });
+      await clearCache(`user:profile:${message.sender}`);
+      await clearCache('listings:*');
     }
 
     logger.info(`Message ${messageId} reported as spam`);

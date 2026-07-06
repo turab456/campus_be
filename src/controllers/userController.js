@@ -1,6 +1,7 @@
 // backend/src/controllers/userController.js
 const User = require('../models/User');
 const { logger } = require('../utils/logger');
+const { getCache, setCache, clearCache } = require('../utils/redis');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 
 // @desc   Get current user profile
@@ -33,6 +34,9 @@ const updateProfile = async (req, res) => {
       updateFields.avatarUrl = imageUrl;
     }
     const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, runValidators: true }).select('-password');
+    // Invalidate profile cache
+    await clearCache(`user:profile:${req.user.id}`);
+    await clearCache('listings:*');
     res.json({ success: true, user });
   } catch (error) {
     logger.error('Update profile error', error);
@@ -40,11 +44,15 @@ const updateProfile = async (req, res) => {
   }
 };
 
-// @desc   Get user details by ID
-// @route  GET /api/users/:id
-// @access Private
 const getUserDetails = async (req, res) => {
   try {
+    const cacheKey = `user:profile:${req.params.id}`;
+    const cachedData = await getCache(cacheKey);
+    if (cachedData) {
+      logger.info(`[Cache Hit] Serving user profile details for: ${req.params.id}`);
+      return res.json(cachedData);
+    }
+
     const user = await User.findById(req.params.id).select('-password');
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
@@ -75,7 +83,7 @@ const getUserDetails = async (req, res) => {
       createdAt: r.createdAt.toISOString()
     }));
       
-    res.json({
+    const responseData = {
       success: true,
       user: {
         ...user.toObject(),
@@ -86,7 +94,11 @@ const getUserDetails = async (req, res) => {
       },
       listings,
       reviews: mappedReviews,
-    });
+    };
+
+    // Cache user profile for 10 minutes (600 seconds)
+    await setCache(cacheKey, responseData, 600);
+    res.json(responseData);
   } catch (error) {
     logger.error('Get user details error', error);
     res.status(500).json({ success: false, message: 'Server error' });

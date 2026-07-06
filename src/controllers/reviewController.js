@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Review = require('../models/Review');
 const User = require('../models/User');
 const Listing = require('../models/Listing');
+const { clearCache } = require('../utils/redis');
 
 // Create review for a seller
 exports.addReview = async (req, res) => {
@@ -87,6 +88,10 @@ exports.addReview = async (req, res) => {
       title: 'New Review Received',
       body: `${req.user.name || 'A user'} rated you ${clampedRating} stars: "${comment.substring(0, 40)}${comment.length > 40 ? '...' : ''}"`
     });
+
+    // Invalidate cached profile details for the seller
+    await clearCache(`user:profile:${sellerId}`);
+    await clearCache('listings:*');
 
     res.status(201).json({ success: true, review: mappedReview, sellerRating: avgRating, sellerReviewsCount: count });
   } catch (error) {
