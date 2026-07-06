@@ -2,6 +2,7 @@
 const ReconsiderationTicket = require('../models/ReconsiderationTicket');
 const User = require('../models/User');
 const { logger } = require('../utils/logger');
+const { sendPushNotification } = require('../utils/fcm');
 
 // Create a new reconsideration ticket (User action)
 exports.createTicket = async (req, res) => {
@@ -131,9 +132,23 @@ exports.resolveTicket = async (req, res) => {
 
       ticket.status = 'approved';
       logger.info(`Reconsideration approved for user ${user.email}. Violation scores cleared.`);
+
+      // Send FCM push alert asynchronously
+      sendPushNotification(user._id, {
+        title: 'Appeal Request Approved',
+        body: 'Your account appeal has been approved! Your status is restored to active.',
+        data: { type: 'appeal_approved', click_action: '/home' }
+      }).catch(err => logger.error('[FCM Warning] Failed to dispatch appeal approval push:', err));
     } else {
       ticket.status = 'rejected';
       logger.info(`Reconsideration appeal rejected for user ${user.email}.`);
+
+      // Send FCM push alert asynchronously
+      sendPushNotification(user._id, {
+        title: 'Appeal Request Rejected',
+        body: `Your account appeal has been rejected: ${adminComment || 'Appeal denied by moderation'}`,
+        data: { type: 'appeal_rejected', reason: adminComment, click_action: '/profile' }
+      }).catch(err => logger.error('[FCM Warning] Failed to dispatch appeal rejection push:', err));
     }
 
     ticket.adminComment = adminComment || '';

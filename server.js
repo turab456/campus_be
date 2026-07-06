@@ -4,9 +4,12 @@ require('dotenv').config({ path: '.env' });
 const app = require('./app');
 const connectDB = require('./src/config/db');
 const { initSocket } = require('./src/utils/socket');
+const { startWorker } = require('./src/utils/jobQueue');
 
 const PORT = process.env.PORT || 5000;
 connectDB();
+// Start background job queue worker
+startWorker();
 const server = http.createServer(app);
 
 // Initialize Socket.io

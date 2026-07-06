@@ -35,7 +35,9 @@ app.use(cors({
   origin: [
     process.env.CLIENT_URL,
     "http://localhost:5173",
-    "http://192.168.31.124:5173"
+    "http://localhost:5174",
+    "http://192.168.31.124:5173",
+    "http://172.20.10.14:5173"
   ],
   credentials: true,
 }));

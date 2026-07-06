@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
-const transporter = require('../config/mail');
+const { queueJob } = require('../utils/jobQueue');
 const { accessSecret, refreshSecret, accessExpiresIn, refreshExpiresIn } = require('../config/jwt');
 const { logger } = require('../utils/logger');
 const crypto = require('crypto');
@@ -32,14 +32,14 @@ const register = async (req, res) => {
     user.verificationToken = verifyToken;
     await user.save();
     try {
-      await transporter.sendMail({
+      await queueJob('EMAIL', {
         from: `Campus Marketplace <${process.env.SMTP_USER}>`,
         to: user.email,
         subject: 'Verify your email',
         html: `<p>Hello ${user.name},</p><p>Please verify your email by clicking <a href="${verificationUrl}">here</a>.</p>`,
       });
-    } catch (mailError) {
-      logger.error(`Failed to send verification email, but user was created. Error: ${mailError.stack || mailError}`);
+    } catch (queueError) {
+      logger.error(`Failed to queue verification email. Error: ${queueError.stack || queueError.message}`);
     }
     res.status(201).json({ success: true, message: 'Registration successful' });
   } catch (error) {

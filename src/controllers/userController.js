@@ -89,4 +89,42 @@ const getUserDetails = async (req, res) => {
   }
 };
 
-module.exports = { getProfile, updateProfile, getUserDetails };
+const registerFcmToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || !token.trim()) {
+      return res.status(400).json({ success: false, message: 'FCM token is required.' });
+    }
+
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(req.user.id, {
+      $addToSet: { fcmTokens: token.trim() }
+    });
+
+    res.json({ success: true, message: 'FCM token registered successfully.' });
+  } catch (error) {
+    logger.error('Register FCM token error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error registering token' });
+  }
+};
+
+const removeFcmToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || !token.trim()) {
+      return res.status(400).json({ success: false, message: 'FCM token is required.' });
+    }
+
+    const User = require('../models/User');
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { fcmTokens: token.trim() }
+    });
+
+    res.json({ success: true, message: 'FCM token removed successfully.' });
+  } catch (error) {
+    logger.error('Remove FCM token error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error removing token' });
+  }
+};
+
+module.exports = { getProfile, updateProfile, getUserDetails, registerFcmToken, removeFcmToken };

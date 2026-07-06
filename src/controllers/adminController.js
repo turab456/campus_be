@@ -6,6 +6,7 @@ const Chat = require('../models/Chat');
 const Review = require('../models/Review');
 const FraudReport = require('../models/FraudReport');
 const { logger } = require('../utils/logger');
+const { sendPushNotification } = require('../utils/fcm');
 
 // Dashboard
 exports.getDashboard = async (req, res) => {
@@ -185,6 +186,13 @@ exports.flagUser = async (req, res) => {
 
     logger.info(`User ${user.email} flagged. Reason: ${reason}`);
 
+    // Send FCM push alert asynchronously
+    sendPushNotification(user._id, {
+      title: 'Account Flagged for Review',
+      body: `Your account has been temporarily flagged for review: ${reason}`,
+      data: { type: 'flagged', reason, click_action: '/profile' }
+    }).catch(err => logger.error('[FCM Warning] Failed to dispatch flag user FCM push:', err));
+
     res.json({ success: true, message: 'User flagged', data: user });
   } catch (error) {
     logger.error('Flag user error', error);
@@ -205,6 +213,13 @@ exports.unflagUser = async (req, res) => {
     }
 
     logger.info(`User ${user.email} unflagged`);
+
+    // Send FCM push alert asynchronously
+    sendPushNotification(user._id, {
+      title: 'Account Review Cleared',
+      body: 'Your account review has been completed. All restrictions have been lifted.',
+      data: { type: 'unflagged', click_action: '/home' }
+    }).catch(err => logger.error('[FCM Warning] Failed to dispatch unflag user FCM push:', err));
 
     res.json({ success: true, message: 'User unflagged', data: user });
   } catch (error) {

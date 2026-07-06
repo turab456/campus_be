@@ -30,6 +30,7 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   violationCount: { type: Number, default: 0 },
+  fcmTokens: [{ type: String }],
 }, { timestamps: true });
 
 // hash password before save

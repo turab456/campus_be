@@ -2,7 +2,9 @@
 const mongoose = require('mongoose');
 const Message = require('../models/Message');
 const Chat = require('../models/Chat');
+const User = require('../models/User');
 const { emitToUser } = require('../utils/socket');
+const { sendPushNotification } = require('../utils/fcm');
 
 // Get all messages in a chat conversation
 exports.getMessages = async (req, res) => {
@@ -95,6 +97,21 @@ exports.sendMessage = async (req, res) => {
       body: text.substring(0, 100), // Truncate notification body
       chatId: chatId
     });
+
+    // Send FCM push notification asynchronously
+    (async () => {
+      try {
+        const sender = await User.findById(senderId).select('name');
+        const senderName = sender ? sender.name : 'Someone';
+        await sendPushNotification(recipientId, {
+          title: `New message from ${senderName}`,
+          body: text.substring(0, 150),
+          data: { type: 'chat', chatId: chatId, click_action: `/messages` }
+        });
+      } catch (err) {
+        console.error('[FCM Hook Error] Message FCM hook failed:', err);
+      }
+    })();
 
     res.status(201).json({ success: true, message: mappedMessage });
   } catch (error) {

@@ -1,6 +1,7 @@
 // backend/src/utils/scoreManager.js
 const User = require('../models/User');
 const { logger } = require('./logger');
+const { sendPushNotification } = require('./fcm');
 
 const SPAM_WARNING_THRESHOLD = 50;
 const SCAM_WARNING_THRESHOLD = 50;
@@ -47,6 +48,13 @@ exports.increaseUserScore = async (userId, scoreType, amount, reason) => {
       await user.save();
       
       logger.error(`User blocked: ${user.email} - Reason: ${user.blockReason}`);
+
+      // Send FCM push alert asynchronously
+      sendPushNotification(user._id, {
+        title: 'Account Suspended',
+        body: `Your account has been suspended: ${user.blockReason}`,
+        data: { type: 'suspension', reason: user.blockReason, click_action: '/profile' }
+      }).catch(err => logger.error('[FCM Warning] Failed to dispatch block FCM push:', err));
       
       return {
         blocked: true,
@@ -150,6 +158,13 @@ exports.blockUser = async (userId, reason) => {
 
     logger.error(`User blocked: ${user.email} - Reason: ${reason}`);
 
+    // Send FCM push alert asynchronously
+    sendPushNotification(user._id, {
+      title: 'Account Suspended',
+      body: `Your account has been suspended: ${reason}`,
+      data: { type: 'suspension', reason, click_action: '/profile' }
+    }).catch(err => logger.error('[FCM Warning] Failed to dispatch block FCM push:', err));
+
     return {
       success: true,
       blocked: true,
@@ -180,6 +195,13 @@ exports.unblockUser = async (userId, reason) => {
     await user.save();
 
     logger.info(`User unblocked: ${user.email} - Reason: ${reason}`);
+
+    // Send FCM push alert asynchronously
+    sendPushNotification(user._id, {
+      title: 'Account Reactivated',
+      body: 'Your account has been successfully reactivated. Welcome back!',
+      data: { type: 'reactivated', click_action: '/home' }
+    }).catch(err => logger.error('[FCM Warning] Failed to dispatch unblock FCM push:', err));
 
     return {
       success: true,
