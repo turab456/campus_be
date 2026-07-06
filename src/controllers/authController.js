@@ -154,4 +154,41 @@ const logout = (req, res) => {
   res.json({ success: true, message: 'Logged out' });
 };
 
-module.exports = { register, verifyEmail, login, refreshToken, logout };
+// @desc   Resend email verification link
+// @route  POST /api/auth/resend-verification
+// @access Public
+const resendVerification = async (req, res) => {
+  const { email } = req.body;
+  try {
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    if (user.isVerified) {
+      return res.status(400).json({ success: false, message: 'Email is already verified. You can now log in.' });
+    }
+    const verifyToken = crypto.randomBytes(32).toString('hex');
+    const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verifyToken}&id=${user._id}`;
+    user.verificationToken = verifyToken;
+    await user.save();
+    try {
+      await queueJob('EMAIL', {
+        from: `Campus Marketplace <${process.env.SMTP_USER}>`,
+        to: user.email,
+        subject: 'Verify your email',
+        html: `<p>Hello ${user.name},</p><p>Please verify your email by clicking <a href="${verificationUrl}">here</a>.</p>`,
+      });
+    } catch (queueError) {
+      logger.error(`Failed to queue verification email. Error: ${queueError.stack || queueError.message}`);
+    }
+    res.json({ success: true, message: 'Verification email resent successfully' });
+  } catch (error) {
+    logger.error('Resend verification link error', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+module.exports = { register, verifyEmail, login, refreshToken, logout, resendVerification };
