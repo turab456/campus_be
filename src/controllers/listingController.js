@@ -2,6 +2,7 @@
 const mongoose = require('mongoose');
 const Listing = require('../models/Listing');
 const Category = require('../models/Category');
+const User = require('../models/User');
 const { logger } = require('../utils/logger');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 const jwt = require('jsonwebtoken');
@@ -112,11 +113,17 @@ const getListing = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid listing ID' });
     }
     const listing = await Listing.findById(req.params.id)
-      .populate('seller', 'name avatarUrl spamScore scamScore')
+      .populate('seller', 'name avatarUrl spamScore scamScore flagged blocked')
       .populate('category', 'name');
     if (!listing) {
       return res.status(404).json({ success: false, message: 'Listing not found' });
     }
+
+    // Exclude if seller is blocked or flagged
+    if (listing.seller && (listing.seller.blocked || listing.seller.flagged)) {
+      return res.status(404).json({ success: false, message: 'Listing not found or seller account is suspended' });
+    }
+
     res.json({ success: true, listing });
   } catch (error) {
     logger.error('Get listing error', error);
@@ -306,6 +313,13 @@ const searchListings = async (req, res) => {
   else if (sort === 'oldest') sortOption = { createdAt: 1 };
 
   try {
+    // Exclude listings from flagged or blocked users
+    const restrictedUsers = await User.find({
+      $or: [{ blocked: true }, { flagged: true }]
+    }).select('_id');
+    const restrictedUserIds = restrictedUsers.map(u => u._id);
+    filter.seller = { $nin: restrictedUserIds };
+
     console.log('[Search Debug] Filter:', JSON.stringify(filter));
     const listings = await Listing.find(filter)
       .populate('seller', 'name avatarUrl spamScore scamScore')

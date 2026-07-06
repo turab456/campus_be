@@ -59,6 +59,31 @@ exports.sendMessage = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to send messages in this conversation' });
     }
 
+    const isBuyerSender = chat.buyer.toString() === senderId;
+    const recipientId = isBuyerSender ? chat.seller.toString() : chat.buyer.toString();
+
+    // Verify neither sender nor recipient is blocked or flagged
+    const participants = await User.find({
+      _id: { $in: [senderId, recipientId] }
+    });
+
+    const senderObj = participants.find(p => p._id.toString() === senderId);
+    const recipientObj = participants.find(p => p._id.toString() === recipientId);
+
+    if (senderObj && (senderObj.blocked || senderObj.flagged)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Your account is temporarily suspended or flagged. Messaging is disabled.'
+      });
+    }
+
+    if (recipientObj && (recipientObj.blocked || recipientObj.flagged)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This user account is suspended or under review. Messaging is disabled.'
+      });
+    }
+
     const message = new Message({
       chat: chatId,
       sender: senderId,

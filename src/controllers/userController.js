@@ -49,6 +49,10 @@ const getUserDetails = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
+
+    if ((user.blocked || user.flagged) && req.user.id !== user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'This student account is suspended or under review.' });
+    }
     
     // Fetch listings for this user
     const Listing = require('../models/Listing');

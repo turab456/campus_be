@@ -13,8 +13,8 @@ exports.getChats = async (req, res) => {
       $or: [{ buyer: userId }, { seller: userId }]
     })
       .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
-      .populate('buyer', 'name avatarUrl rating college')
-      .populate('seller', 'name avatarUrl rating college')
+      .populate('buyer', 'name avatarUrl rating college flagged blocked')
+      .populate('seller', 'name avatarUrl rating college flagged blocked')
       .sort({ lastMessageTime: -1 });
 
     const mappedChats = chats.map(c => {
@@ -38,7 +38,9 @@ exports.getChats = async (req, res) => {
           name: otherUser.name,
           avatar: otherUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
           rating: otherUser.rating || 5.0,
-          college: otherUser.college || 'N/A'
+          college: otherUser.college || 'N/A',
+          flagged: otherUser.flagged || false,
+          blocked: otherUser.blocked || false
         },
         lastMessage: c.lastMessage,
         lastMessageTime: c.lastMessageTime.toISOString(),
@@ -82,8 +84,8 @@ exports.createOrGetChat = async (req, res) => {
       seller: sellerId
     })
       .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
-      .populate('buyer', 'name avatarUrl rating college')
-      .populate('seller', 'name avatarUrl rating college');
+      .populate('buyer', 'name avatarUrl rating college flagged blocked')
+      .populate('seller', 'name avatarUrl rating college flagged blocked');
 
     if (!chat) {
       // Create new conversation
@@ -101,8 +103,8 @@ exports.createOrGetChat = async (req, res) => {
       // Populate fresh doc
       chat = await Chat.findById(chat._id)
         .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
-        .populate('buyer', 'name avatarUrl rating college')
-        .populate('seller', 'name avatarUrl rating college');
+        .populate('buyer', 'name avatarUrl rating college flagged blocked')
+        .populate('seller', 'name avatarUrl rating college flagged blocked');
     }
 
     const isBuyer = chat.buyer._id.toString() === buyerId;
@@ -125,7 +127,9 @@ exports.createOrGetChat = async (req, res) => {
         name: otherUser.name,
         avatar: otherUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
         rating: otherUser.rating || 5.0,
-        college: otherUser.college || 'N/A'
+        college: otherUser.college || 'N/A',
+        flagged: otherUser.flagged || false,
+        blocked: otherUser.blocked || false
       },
       lastMessage: chat.lastMessage,
       lastMessageTime: chat.lastMessageTime.toISOString(),
