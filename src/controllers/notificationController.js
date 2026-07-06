@@ -1,6 +1,7 @@
 // backend/src/controllers/notificationController.js
 const Notification = require('../models/Notification');
 const { logger } = require('../utils/logger');
+const { sendPushNotification } = require('../utils/fcm');
 
 /**
  * Helper: create a notification for a user.
@@ -17,6 +18,19 @@ exports.createNotification = async ({ recipient, type, title, message, relatedLi
       relatedChat: relatedChat || undefined,
       relatedUser: relatedUser || undefined,
     });
+
+    // Send FCM push notification dynamically for all system alerts
+    sendPushNotification(recipient, {
+      title,
+      body: message,
+      data: {
+        type: type || 'notification',
+        click_action: relatedChat ? `/messages` : '/notifications',
+        relatedListing: relatedListing ? relatedListing.toString() : '',
+        relatedChat: relatedChat ? relatedChat.toString() : ''
+      }
+    }).catch(err => logger.error('[FCM Warning] Failed to dispatch push for database notification:', err.message));
+
     return notif;
   } catch (err) {
     logger.error('Failed to create notification:', err.message);
