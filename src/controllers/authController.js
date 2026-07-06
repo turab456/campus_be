@@ -31,6 +31,11 @@ const register = async (req, res) => {
     // Store token temporarily (could be a DB field; using env for brevity)
     user.verificationToken = verifyToken;
     await user.save();
+    
+    // Log verification link to console to allow local testing and bypass SMTP port blocks on Render
+    logger.info(`[Email Verification Link]: ${verificationUrl}`);
+    console.log(`\n✉️ [Email Verification Link]: ${verificationUrl}\n`);
+
     try {
       await queueJob('EMAIL', {
         from: `Campus Marketplace <${process.env.SMTP_USER}>`,
@@ -174,6 +179,11 @@ const resendVerification = async (req, res) => {
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verifyToken}&id=${user._id}`;
     user.verificationToken = verifyToken;
     await user.save();
+
+    // Log verification link to console to allow local testing and bypass SMTP port blocks on Render
+    logger.info(`[Resend Email Verification Link]: ${verificationUrl}`);
+    console.log(`\n✉️ [Resend Email Verification Link]: ${verificationUrl}\n`);
+
     try {
       await queueJob('EMAIL', {
         from: `Campus Marketplace <${process.env.SMTP_USER}>`,

@@ -17,36 +17,38 @@ exports.getChats = async (req, res) => {
       .populate('seller', 'name avatarUrl rating college flagged blocked')
       .sort({ lastMessageTime: -1 });
 
-    const mappedChats = chats.map(c => {
-      const isBuyer = c.buyer._id.toString() === userId;
-      const otherUser = isBuyer ? c.seller : c.buyer;
-      const unread = isBuyer ? c.unreadBuyer : c.unreadSeller;
+    const mappedChats = chats
+      .filter(c => c.buyer && c.seller)
+      .map(c => {
+        const isBuyer = c.buyer._id.toString() === userId;
+        const otherUser = isBuyer ? c.seller : c.buyer;
+        const unread = isBuyer ? c.unreadBuyer : c.unreadSeller;
 
-      return {
-        id: c._id.toString(),
-        bookId: c.book ? c.book._id.toString() : '',
-        bookTitle: c.book ? c.book.title : 'Deleted Book',
-        bookImage: c.book && c.book.images && c.book.images.length > 0 ? c.book.images[0] : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&auto=format&fit=crop&q=80',
-        bookPrice: c.book ? c.book.price : 0,
-        bookIsSold: c.book ? c.book.isSold : false,
-        buyerConfirmedReceipt: c.book ? c.book.buyerConfirmedReceipt : false,
-        salePending: c.book ? c.book.salePending : false,
-        buyerId: c.buyer._id.toString(),
-        sellerId: c.seller._id.toString(),
-        otherParticipant: {
-          id: otherUser._id.toString(),
-          name: otherUser.name,
-          avatar: otherUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-          rating: otherUser.rating || 5.0,
-          college: otherUser.college || 'N/A',
-          flagged: otherUser.flagged || false,
-          blocked: otherUser.blocked || false
-        },
-        lastMessage: c.lastMessage,
-        lastMessageTime: c.lastMessageTime.toISOString(),
-        unread
-      };
-    });
+        return {
+          id: c._id.toString(),
+          bookId: c.book ? c.book._id.toString() : '',
+          bookTitle: c.book ? c.book.title : 'Deleted Book',
+          bookImage: c.book && c.book.images && c.book.images.length > 0 ? c.book.images[0] : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&auto=format&fit=crop&q=80',
+          bookPrice: c.book ? c.book.price : 0,
+          bookIsSold: c.book ? c.book.isSold : false,
+          buyerConfirmedReceipt: c.book ? c.book.buyerConfirmedReceipt : false,
+          salePending: c.book ? c.book.salePending : false,
+          buyerId: c.buyer._id.toString(),
+          sellerId: c.seller._id.toString(),
+          otherParticipant: {
+            id: otherUser._id.toString(),
+            name: otherUser.name,
+            avatar: otherUser.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+            rating: otherUser.rating || 5.0,
+            college: otherUser.college || 'N/A',
+            flagged: otherUser.flagged || false,
+            blocked: otherUser.blocked || false
+          },
+          lastMessage: c.lastMessage,
+          lastMessageTime: c.lastMessageTime ? c.lastMessageTime.toISOString() : new Date().toISOString(),
+          unread
+        };
+      });
 
     res.json({ success: true, chats: mappedChats });
   } catch (error) {
@@ -105,6 +107,10 @@ exports.createOrGetChat = async (req, res) => {
         .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
         .populate('buyer', 'name avatarUrl rating college flagged blocked')
         .populate('seller', 'name avatarUrl rating college flagged blocked');
+    }
+
+    if (!chat.buyer || !chat.seller) {
+      return res.status(404).json({ success: false, message: 'Chat participant was deleted or not found' });
     }
 
     const isBuyer = chat.buyer._id.toString() === buyerId;
