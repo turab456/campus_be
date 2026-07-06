@@ -34,6 +34,7 @@ app.use(helmet());
 app.use(cors({
   origin: [
     process.env.CLIENT_URL,
+    "https://revoshelf.netlify.app",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://192.168.31.124:5173",
