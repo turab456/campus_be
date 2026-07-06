@@ -91,9 +91,9 @@ const login = async (req, res) => {
 
     // Verify email is confirmed before allowing login (admins bypassed for prototype ease)
     if (user.role !== 'admin' && !user.isVerified) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Please verify your email address before logging in. Check your inbox for the verification link.' 
+      return res.status(403).json({
+        success: false,
+        message: 'Please verify your email address before logging in. Check your inbox for the verification link.'
       });
     }
 
