@@ -94,8 +94,6 @@ exports.sendMessage = async (req, res) => {
     chat.lastMessage = text.substring(0, 200); // Truncate preview to prevent oversized storage
     chat.lastMessageTime = new Date();
 
-    const isBuyerSender = chat.buyer.toString() === senderId;
-    const recipientId = isBuyerSender ? chat.seller.toString() : chat.buyer.toString();
 
     if (isBuyerSender) {
       chat.unreadSeller = true;

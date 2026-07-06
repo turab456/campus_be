@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
   fcmTokens: [{ type: String }],
 }, { timestamps: true });
 
+// Optimize query performance for user restrictions
+userSchema.index({ flagged: 1 });
+userSchema.index({ blocked: 1 });
+
 // hash password before save
 userSchema.pre('save', async function (next) {
   if (!this.isModified('password')) return next();

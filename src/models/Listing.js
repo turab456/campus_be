@@ -31,4 +31,9 @@ const listingSchema = new mongoose.Schema({
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { timestamps: true });
 
+// Optimize query performances with database indexes
+listingSchema.index({ seller: 1 });
+listingSchema.index({ isSold: 1 });
+listingSchema.index({ category: 1 });
+
 module.exports = mongoose.model('Listing', listingSchema);
