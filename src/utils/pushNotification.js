@@ -8,10 +8,13 @@ let isWebPushConfigured = false;
 // Check env variables or generate dynamic VAPID keys as fallback
 let publicKey = process.env.VITE_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY;
 let privateKey = process.env.VAPID_PRIVATE_KEY;
-const email = process.env.SMTP_USER || 'mailto:sufiturabhussain@gmail.com';
+let subject = process.env.SMTP_USER || 'sufiturabhussain@gmail.com';
+if (subject && !subject.startsWith('mailto:') && !subject.startsWith('http://') && !subject.startsWith('https://')) {
+  subject = `mailto:${subject}`;
+}
 
 if (publicKey && privateKey) {
-  webpush.setVapidDetails(email, publicKey, privateKey);
+  webpush.setVapidDetails(subject, publicKey, privateKey);
   isWebPushConfigured = true;
   logger.info('[Web Push] VAPID details set successfully.');
 } else {
@@ -20,7 +23,7 @@ if (publicKey && privateKey) {
     const keys = webpush.generateVAPIDKeys();
     publicKey = keys.publicKey;
     privateKey = keys.privateKey;
-    webpush.setVapidDetails(email, publicKey, privateKey);
+    webpush.setVapidDetails(subject, publicKey, privateKey);
     isWebPushConfigured = true;
     logger.warn('[Web Push] VAPID credentials (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY) are missing in .env.');
     logger.warn('[Web Push] Dynamically generated VAPID keys for this session:');
