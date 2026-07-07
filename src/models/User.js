@@ -30,7 +30,13 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
   }],
   violationCount: { type: Number, default: 0 },
-  fcmTokens: [{ type: String }],
+  pushSubscriptions: [{
+    endpoint: { type: String, required: true },
+    keys: {
+      p256dh: { type: String, required: true },
+      auth: { type: String, required: true }
+    }
+  }],
 }, { timestamps: true });
 
 // Optimize query performance for user restrictions

@@ -105,42 +105,57 @@ const getUserDetails = async (req, res) => {
   }
 };
 
-const registerFcmToken = async (req, res) => {
+const registerPushSubscription = async (req, res) => {
   try {
-    const { token } = req.body;
-    if (!token || !token.trim()) {
-      return res.status(400).json({ success: false, message: 'FCM token is required.' });
+    const { subscription } = req.body;
+    if (!subscription || !subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
+      return res.status(400).json({ success: false, message: 'Invalid subscription object.' });
+    }
+
+    const User = require('../models/User');
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
+    const exists = user.pushSubscriptions.some(sub => sub.endpoint === subscription.endpoint);
+    if (!exists) {
+      user.pushSubscriptions.push(subscription);
+      await user.save();
+      logger.info(`[Web Push] Registered new subscription for user ${user.email}`);
+    }
+
+    res.json({ success: true, message: 'Push subscription registered successfully.' });
+  } catch (error) {
+    logger.error('Register push subscription error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error registering subscription' });
+  }
+};
+
+const removePushSubscription = async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (!endpoint) {
+      return res.status(400).json({ success: false, message: 'Endpoint is required.' });
     }
 
     const User = require('../models/User');
     await User.findByIdAndUpdate(req.user.id, {
-      $addToSet: { fcmTokens: token.trim() }
+      $pull: { pushSubscriptions: { endpoint } }
     });
+    logger.info(`[Web Push] Removed subscription for user ${req.user.id}`);
 
-    res.json({ success: true, message: 'FCM token registered successfully.' });
+    res.json({ success: true, message: 'Push subscription removed successfully.' });
   } catch (error) {
-    logger.error('Register FCM token error:', error.message);
-    res.status(500).json({ success: false, message: 'Server error registering token' });
+    logger.error('Remove push subscription error:', error.message);
+    res.status(500).json({ success: false, message: 'Server error removing subscription' });
   }
 };
 
-const removeFcmToken = async (req, res) => {
-  try {
-    const { token } = req.body;
-    if (!token || !token.trim()) {
-      return res.status(400).json({ success: false, message: 'FCM token is required.' });
-    }
-
-    const User = require('../models/User');
-    await User.findByIdAndUpdate(req.user.id, {
-      $pull: { fcmTokens: token.trim() }
-    });
-
-    res.json({ success: true, message: 'FCM token removed successfully.' });
-  } catch (error) {
-    logger.error('Remove FCM token error:', error.message);
-    res.status(500).json({ success: false, message: 'Server error removing token' });
-  }
+const getVapidKey = (req, res) => {
+  const { getVapidPublicKey } = require('../utils/pushNotification');
+  const key = getVapidPublicKey();
+  res.json({ success: true, publicKey: key });
 };
 
-module.exports = { getProfile, updateProfile, getUserDetails, registerFcmToken, removeFcmToken };
+module.exports = { getProfile, updateProfile, getUserDetails, registerPushSubscription, removePushSubscription, getVapidKey };
