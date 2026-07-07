@@ -268,7 +268,7 @@ const searchListings = async (req, res) => {
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const { search, category, condition, minPrice, maxPrice, sort } = req.query;
 
-  const filter = { isSold: false }; // Only show listings that haven't been sold
+  const filter = { isSold: false, flagged: { $ne: true } }; // Only show listings that haven't been sold and aren't flagged
 
 
 

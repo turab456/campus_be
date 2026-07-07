@@ -283,10 +283,6 @@ exports.cancelPendingSale = async (req, res) => {
 
       const seller = await User.findById(listing.seller);
       if (seller) {
-        seller.flagged = true;
-        seller.flagReason = reason;
-        await seller.save();
-
         // Fraud report for the seller (user-level)
         await FraudReport.create({
           itemId: listing.seller,

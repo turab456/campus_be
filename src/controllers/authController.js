@@ -124,8 +124,13 @@ const login = async (req, res) => {
 
     const accessToken = generateToken({ id: user._id, role: user.role }, accessSecret, accessExpiresIn);
     const refreshToken = generateToken({ id: user._id }, refreshSecret, refreshExpiresIn);
-    // Optionally set httpOnly cookie
-    res.cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict', secure: process.env.NODE_ENV === 'production' });
+    // Optionally set httpOnly cookie with maxAge to persist across browser/PWA closures
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
     res.json({ success: true, accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role, college: user.college, department: user.department, semester: user.semester } });
   } catch (error) {
     logger.error('Login error', error);

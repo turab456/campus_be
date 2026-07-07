@@ -68,9 +68,11 @@ exports.increaseUserScore = async (userId, scoreType, amount, reason) => {
     if ((scoreType === 'spamScore' && user.spamScore >= SPAM_WARNING_THRESHOLD) ||
         (scoreType === 'scamScore' && user.scamScore >= SCAM_WARNING_THRESHOLD)) {
       
+      user.flagged = true;
+      user.flagReason = `Score reached warning threshold. ${scoreType} = ${user[scoreType]}/100`;
       await user.save();
       
-      logger.warn(`Warning issued for user ${user.email}: ${scoreType} = ${user[scoreType]}`);
+      logger.warn(`Warning issued and user flagged ${user.email}: ${scoreType} = ${user[scoreType]}`);
       
       return {
         blocked: false,
