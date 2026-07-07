@@ -113,13 +113,8 @@ exports.sendMessage = async (req, res) => {
     // Emit the message details
     emitToUser(recipientId, 'message', mappedMessage);
 
-    // Emit a generic notification event to show in-app popup notifications
-    emitToUser(recipientId, 'notification', {
-      type: 'message',
-      title: 'New Message',
-      body: text.substring(0, 100), // Truncate notification body
-      chatId: chatId
-    });
+    // Emitting chat message event handles real-time updates in chat UI
+    // The push notification below handles background delivery
 
     // Send FCM push notification asynchronously
     (async () => {

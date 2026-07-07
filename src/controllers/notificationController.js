@@ -2,6 +2,9 @@
 const Notification = require('../models/Notification');
 const { logger } = require('../utils/logger');
 
+const { emitToUser } = require('../utils/socket');
+const { sendPushNotification } = require('../utils/pushNotification');
+
 /**
  * Helper: create a notification for a user.
  * Can be called from any controller.
@@ -17,6 +20,35 @@ exports.createNotification = async ({ recipient, type, title, message, relatedLi
       relatedChat: relatedChat || undefined,
       relatedUser: relatedUser || undefined,
     });
+
+    const recipientIdStr = recipient.toString();
+
+    // Emit real-time notification event for bell icon updates
+    emitToUser(recipientIdStr, 'notification', notif);
+
+    // Emit chat status update event if related to a transaction
+    const saleEvents = ['sale_pending', 'sale_confirmed', 'sale_denied', 'sale_canceled'];
+    if (saleEvents.includes(type) && relatedChat) {
+      emitToUser(recipientIdStr, 'chat_status_updated', {
+        chatId: relatedChat.toString(),
+        listingId: relatedListing ? relatedListing.toString() : null,
+        type: type
+      });
+    }
+
+    // Send Push Notification
+    sendPushNotification(recipientIdStr, {
+      title,
+      body: message,
+      data: {
+        type,
+        click_action: relatedChat ? '/messages' : (relatedListing ? `/book/${relatedListing}` : '/home'),
+        chatId: relatedChat ? relatedChat.toString() : undefined,
+      }
+    }).catch(err => {
+      logger.error('Failed to send push notification within createNotification:', err.message);
+    });
+
     return notif;
   } catch (err) {
     logger.error('Failed to create notification:', err.message);

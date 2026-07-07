@@ -58,8 +58,8 @@ const sendPushNotification = async (userId, { title, body, data = {} }) => {
     const notificationPayload = JSON.stringify({
       title,
       body,
-      icon: 'https://www.google.com/imgres?q=campus%20icon&imgurl=https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F4413%2F4413044.png&imgrefurl=https%3A%2F%2Fwww.flaticon.com%2Ffree-icon%2Fcampus_4413044&docid=j76O6mTx0au1DM&tbnid=FckRyNcGsEViQM&vet=12ahUKEwjsrf7-38CVAxUvoK8BHX83FgYQnPAOegQIeRAA..i&w=512&h=512&hcb=2&ved=2ahUKEwjsrf7-38CVAxUvoK8BHX83FgYQnPAOegQIeRAA',
-      badge: 'https://www.google.com/imgres?q=campus%20icon&imgurl=https%3A%2F%2Fcdn-icons-png.flaticon.com%2F512%2F4413%2F4413044.png&imgrefurl=https%3A%2F%2Fwww.flaticon.com%2Ffree-icon%2Fcampus_4413044&docid=j76O6mTx0au1DM&tbnid=FckRyNcGsEViQM&vet=12ahUKEwjsrf7-38CVAxUvoK8BHX83FgYQnPAOegQIeRAA..i&w=512&h=512&hcb=2&ved=2ahUKEwjsrf7-38CVAxUvoK8BHX83FgYQnPAOegQIeRAA',
+      icon: '/thecampx_logo.png',
+      badge: '/thecampx_logo.png',
       data: {
         ...data,
         click_action: data.click_action || '/messages'
