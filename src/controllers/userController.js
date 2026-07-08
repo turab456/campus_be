@@ -36,7 +36,29 @@ const getProfile = async (req, res) => {
 // @route  PUT /api/users/me
 // @access Private
 const updateProfile = async (req, res) => {
-  const { name, avatar, country, addressLine, city, state, pincode, college, department, semester, coordinates } = req.body;
+  const body = req.body || {};
+  const name = body.name;
+  const avatar = body.avatar;
+  const country = body.country;
+  const addressLine = body.addressLine;
+  const city = body.city;
+  const state = body.state;
+  const pincode = body.pincode;
+  const college = body.college;
+  const department = body.department;
+  const semester = body.semester !== undefined && body.semester !== ''
+    ? Number(body.semester)
+    : undefined;
+
+  let coordinates = body.coordinates;
+  if (typeof coordinates === 'string' && coordinates.trim()) {
+    try {
+      coordinates = JSON.parse(coordinates);
+    } catch {
+      coordinates = undefined;
+    }
+  }
+
   try {
     const updateFields = {};
     if (name !== undefined) updateFields.name = name;
@@ -71,17 +93,18 @@ const updateProfile = async (req, res) => {
       updateFields.coordinates = coords;
     }
 
-    // If an avatar image is provided (base64 or multipart), upload to Cloudinary
+    // If an avatar image is provided (multipart file or base64), upload/store it
     if (req.file) {
-      const imageUrl = await cloudinaryHelper.uploadFromBuffer(req.file.buffer);
+      const imageUrl = await cloudinaryHelper.uploadFromBuffer(
+        req.file.buffer,
+        req.file.mimetype || 'image/jpeg'
+      );
       updateFields.avatarUrl = imageUrl;
-    } else if (avatar) {
-      if (avatar.startsWith('data:image')) {
-        const imageUrl = await cloudinaryHelper.uploadImage(avatar);
-        updateFields.avatarUrl = imageUrl;
-      } else {
-        updateFields.avatarUrl = avatar;
-      }
+    } else if (avatar && avatar.startsWith('data:image')) {
+      const imageUrl = await cloudinaryHelper.uploadImage(avatar);
+      updateFields.avatarUrl = imageUrl;
+    } else if (avatar && !avatar.startsWith('data:image')) {
+      updateFields.avatarUrl = avatar;
     }
 
     const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, runValidators: true }).select('-password');
