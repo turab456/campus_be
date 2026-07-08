@@ -26,7 +26,7 @@ const getProfile = async (req, res) => {
 // @route  PUT /api/users/me
 // @access Private
 const updateProfile = async (req, res) => {
-  const { name, country, addressLine, city, state, pincode, college, department, semester, coordinates } = req.body;
+  const { name, avatar, country, addressLine, city, state, pincode, college, department, semester, coordinates } = req.body;
   try {
     const updateFields = {};
     if (name !== undefined) updateFields.name = name;
@@ -65,6 +65,13 @@ const updateProfile = async (req, res) => {
     if (req.file) {
       const imageUrl = await cloudinaryHelper.uploadFromBuffer(req.file.buffer);
       updateFields.avatarUrl = imageUrl;
+    } else if (avatar) {
+      if (avatar.startsWith('data:image')) {
+        const imageUrl = await cloudinaryHelper.uploadImage(avatar);
+        updateFields.avatarUrl = imageUrl;
+      } else {
+        updateFields.avatarUrl = avatar;
+      }
     }
 
     const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, runValidators: true }).select('-password');
