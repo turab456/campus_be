@@ -24,6 +24,7 @@ const listingSchema = new mongoose.Schema({
   confirmedAt: { type: Date },
   buyer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   fraudScore: { type: Number, default: 0, min: 0, max: 100 },
+  status: { type: String, enum: ['normal', 'risky'], default: 'normal' },
   flagged: { type: Boolean, default: false },
   flagReason: { type: String },
   approved: { type: Boolean, default: true },

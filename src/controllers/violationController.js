@@ -275,10 +275,8 @@ exports.cancelPendingSale = async (req, res) => {
       const reason = `Buyer denied purchase and canceled pending sale for book: "${listing.title}"`;
       await increaseUserScore(listing.seller, 'scamScore', 20, reason);
 
-      // Increase the listing's own fraud score and flag it
+      // Increase the listing's own fraud score
       listing.fraudScore = Math.min(100, (listing.fraudScore || 0) + 25);
-      listing.flagged = true;
-      listing.flagReason = reason;
       await listing.save();
 
       const seller = await User.findById(listing.seller);

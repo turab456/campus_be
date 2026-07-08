@@ -39,13 +39,22 @@ exports.increaseUserScore = async (userId, scoreType, amount, reason) => {
 
     logger.info(`Score increased for user ${user.email}: ${scoreType} ${oldScore} → ${user[scoreType]} (reason: ${reason})`);
 
-    // Check if should be blocked
+    // Check if should be blocked/flagged fully
     if (user.spamScore >= BLOCK_THRESHOLD || user.scamScore >= BLOCK_THRESHOLD) {
       user.blocked = true;
+      user.flagged = true;
+      user.flagReason = `${scoreType.toUpperCase()} score reached critical threshold (${user[scoreType]}/100)`;
       user.blockReason = `${scoreType.toUpperCase()} score exceeded threshold (${user[scoreType]}/100)`;
       user.blockedAt = new Date();
       
       await user.save();
+      
+      // Flag all user listings
+      const Listing = require('../models/Listing');
+      await Listing.updateMany(
+        { seller: user._id },
+        { $set: { flagged: true, flagReason: user.blockReason } }
+      );
       
       logger.error(`User blocked: ${user.email} - Reason: ${user.blockReason}`);
 
@@ -64,15 +73,20 @@ exports.increaseUserScore = async (userId, scoreType, amount, reason) => {
       };
     }
 
-    // Check if should send warning
+    // Check if should send warning and mark listings as risky
     if ((scoreType === 'spamScore' && user.spamScore >= SPAM_WARNING_THRESHOLD) ||
         (scoreType === 'scamScore' && user.scamScore >= SCAM_WARNING_THRESHOLD)) {
       
-      user.flagged = true;
-      user.flagReason = `Score reached warning threshold. ${scoreType} = ${user[scoreType]}/100`;
       await user.save();
       
-      logger.warn(`Warning issued and user flagged ${user.email}: ${scoreType} = ${user[scoreType]}`);
+      // Update all user listings to 'risky' status
+      const Listing = require('../models/Listing');
+      await Listing.updateMany(
+        { seller: user._id },
+        { $set: { status: 'risky' } }
+      );
+      
+      logger.warn(`Warning issued for user ${user.email}: ${scoreType} = ${user[scoreType]}`);
       
       return {
         blocked: false,
