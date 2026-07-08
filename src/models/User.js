@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   department: { type: String },
   semester: { type: Number },
   avatarUrl: { type: String },
+  country: { type: String },
   addressLine: { type: String },
   city: { type: String },
   state: { type: String },

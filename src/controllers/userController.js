@@ -26,10 +26,11 @@ const getProfile = async (req, res) => {
 // @route  PUT /api/users/me
 // @access Private
 const updateProfile = async (req, res) => {
-  const { name, addressLine, city, state, pincode, college, department, semester } = req.body;
+  const { name, country, addressLine, city, state, pincode, college, department, semester, coordinates } = req.body;
   try {
     const updateFields = {};
     if (name !== undefined) updateFields.name = name;
+    if (country !== undefined) updateFields.country = country;
     if (addressLine !== undefined) updateFields.addressLine = addressLine;
     if (city !== undefined) updateFields.city = city;
     if (state !== undefined) updateFields.state = state;
@@ -43,16 +44,20 @@ const updateProfile = async (req, res) => {
       addressLine !== undefined || 
       city !== undefined || 
       state !== undefined || 
-      pincode !== undefined;
+      pincode !== undefined ||
+      country !== undefined;
 
-    if (isAddressUpdated) {
+    if (coordinates !== undefined) {
+      updateFields.coordinates = coordinates;
+    } else if (isAddressUpdated) {
       const currentUser = await User.findById(req.user.id);
       const queryAddressLine = addressLine !== undefined ? addressLine : (currentUser?.addressLine || '');
       const queryCity = city !== undefined ? city : (currentUser?.city || '');
       const queryState = state !== undefined ? state : (currentUser?.state || '');
       const queryPincode = pincode !== undefined ? pincode : (currentUser?.pincode || '');
+      const queryCountry = country !== undefined ? country : (currentUser?.country || '');
 
-      const coords = await geocodeAddress(queryAddressLine, queryCity, queryState, queryPincode);
+      const coords = await geocodeAddress(queryAddressLine, queryCity, queryState, queryPincode, queryCountry);
       updateFields.coordinates = coords;
     }
 

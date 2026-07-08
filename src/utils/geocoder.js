@@ -1,9 +1,9 @@
 // backend/src/utils/geocoder.js
 const https = require('https');
 
-const geocodeAddress = (addressLine, city, state, pincode) => {
+const geocodeAddress = (addressLine, city, state, pincode, country) => {
   return new Promise((resolve) => {
-    const queryStr = `${addressLine || ''} ${city || ''} ${state || ''} ${pincode || ''}`.trim();
+    const queryStr = `${addressLine || ''} ${city || ''} ${state || ''} ${pincode || ''} ${country || ''}`.trim();
     if (!queryStr) {
       return resolve(getFallbackCoordinates(pincode));
     }
