@@ -6,6 +6,16 @@ const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 
 const { geocodeAddress } = require('../utils/geocoder');
 
+const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+
+const formatUserResponse = (user) => {
+  const obj = user.toObject ? user.toObject() : user;
+  return {
+    ...obj,
+    avatar: obj.avatarUrl || obj.avatar || DEFAULT_AVATAR,
+  };
+};
+
 // @desc   Get current user profile
 // @route  GET /api/users/me
 // @access Private (protect middleware)
@@ -15,7 +25,7 @@ const getProfile = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
     }
-    res.json({ success: true, user });
+    res.json({ success: true, user: formatUserResponse(user) });
   } catch (error) {
     logger.error('Get profile error', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -78,7 +88,7 @@ const updateProfile = async (req, res) => {
     // Invalidate profile cache
     await clearCache(`user:profile:${req.user.id}`);
     await clearCache('listings:*');
-    res.json({ success: true, user });
+    res.json({ success: true, user: formatUserResponse(user) });
   } catch (error) {
     logger.error('Update profile error', error);
     res.status(500).json({ success: false, message: 'Server error' });

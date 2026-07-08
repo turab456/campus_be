@@ -131,7 +131,22 @@ const login = async (req, res) => {
       secure: process.env.NODE_ENV === 'production',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
-    res.json({ success: true, accessToken, user: { id: user._id, name: user.name, email: user.email, role: user.role, college: user.college, department: user.department, semester: user.semester } });
+    res.json({ success: true, accessToken, user: {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      college: user.college,
+      department: user.department,
+      semester: user.semester,
+      avatarUrl: user.avatarUrl,
+      addressLine: user.addressLine,
+      city: user.city,
+      state: user.state,
+      pincode: user.pincode,
+      country: user.country,
+      coordinates: user.coordinates,
+    } });
   } catch (error) {
     logger.error('Login error', error);
     res.status(500).json({ success: false, message: 'Server error' });
