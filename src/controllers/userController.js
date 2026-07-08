@@ -4,6 +4,8 @@ const { logger } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/redis');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 
+const { geocodeAddress } = require('../utils/geocoder');
+
 // @desc   Get current user profile
 // @route  GET /api/users/me
 // @access Private (protect middleware)
@@ -20,19 +22,46 @@ const getProfile = async (req, res) => {
   }
 };
 
-// @desc   Update current user profile (name, avatar)
+// @desc   Update current user profile (name, avatar, address, credentials)
 // @route  PUT /api/users/me
 // @access Private
 const updateProfile = async (req, res) => {
-  const { name } = req.body;
+  const { name, addressLine, city, state, pincode, college, department, semester } = req.body;
   try {
     const updateFields = {};
-    if (name) updateFields.name = name;
+    if (name !== undefined) updateFields.name = name;
+    if (addressLine !== undefined) updateFields.addressLine = addressLine;
+    if (city !== undefined) updateFields.city = city;
+    if (state !== undefined) updateFields.state = state;
+    if (pincode !== undefined) updateFields.pincode = pincode;
+    if (college !== undefined) updateFields.college = college;
+    if (department !== undefined) updateFields.department = department;
+    if (semester !== undefined) updateFields.semester = semester;
+
+    // Check if address was updated to compute coordinates
+    const isAddressUpdated = 
+      addressLine !== undefined || 
+      city !== undefined || 
+      state !== undefined || 
+      pincode !== undefined;
+
+    if (isAddressUpdated) {
+      const currentUser = await User.findById(req.user.id);
+      const queryAddressLine = addressLine !== undefined ? addressLine : (currentUser?.addressLine || '');
+      const queryCity = city !== undefined ? city : (currentUser?.city || '');
+      const queryState = state !== undefined ? state : (currentUser?.state || '');
+      const queryPincode = pincode !== undefined ? pincode : (currentUser?.pincode || '');
+
+      const coords = await geocodeAddress(queryAddressLine, queryCity, queryState, queryPincode);
+      updateFields.coordinates = coords;
+    }
+
     // If an avatar image is provided (base64 or multipart), upload to Cloudinary
     if (req.file) {
       const imageUrl = await cloudinaryHelper.uploadFromBuffer(req.file.buffer);
       updateFields.avatarUrl = imageUrl;
     }
+
     const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, runValidators: true }).select('-password');
     // Invalidate profile cache
     await clearCache(`user:profile:${req.user.id}`);

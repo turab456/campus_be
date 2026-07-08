@@ -10,6 +10,14 @@ const userSchema = new mongoose.Schema({
   department: { type: String },
   semester: { type: Number },
   avatarUrl: { type: String },
+  addressLine: { type: String },
+  city: { type: String },
+  state: { type: String },
+  pincode: { type: String },
+  coordinates: {
+    lat: { type: Number },
+    lng: { type: Number }
+  },
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },

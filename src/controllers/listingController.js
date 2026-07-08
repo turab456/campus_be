@@ -8,6 +8,7 @@ const { getCache, setCache, clearCache } = require('../utils/redis');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 const jwt = require('jsonwebtoken');
 const { accessSecret } = require('../config/jwt');
+const { getDistanceInKm } = require('../utils/geocoder');
 
 /**
  * Escape special regex characters from user input to prevent ReDoS / NoSQL injection.
@@ -116,7 +117,7 @@ const getListing = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid listing ID' });
     }
     const listing = await Listing.findById(req.params.id)
-      .populate('seller', 'name avatarUrl spamScore scamScore flagged blocked')
+      .populate('seller', 'name avatarUrl spamScore scamScore flagged blocked coordinates')
       .populate('category', 'name');
     if (!listing) {
       return res.status(404).json({ success: false, message: 'Listing not found' });
@@ -127,7 +128,30 @@ const getListing = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Listing not found or seller account is suspended' });
     }
 
-    res.json({ success: true, listing });
+    // Optional auth check for viewer coordinates
+    let userCoords = null;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.split(' ')[1];
+        const decoded = jwt.verify(token, accessSecret);
+        const reqUser = await User.findById(decoded.id).select('coordinates');
+        if (reqUser && reqUser.coordinates) {
+          userCoords = reqUser.coordinates;
+        }
+      } catch (err) {
+        // ignore token error
+      }
+    }
+
+    const listingObj = listing.toObject();
+    if (userCoords && listing.seller && listing.seller.coordinates) {
+      const dist = getDistanceInKm(userCoords.lat, userCoords.lng, listing.seller.coordinates.lat, listing.seller.coordinates.lng);
+      listingObj.distanceKm = parseFloat(dist.toFixed(1));
+      listingObj.isNearMe = dist <= 5;
+    }
+
+    res.json({ success: true, listing: listingObj });
   } catch (error) {
     logger.error('Get listing error', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -319,8 +343,25 @@ const searchListings = async (req, res) => {
   else if (sort === 'price_desc') sortOption = { price: -1 };
   else if (sort === 'oldest') sortOption = { createdAt: 1 };
 
+  let userCoords = null;
+  let userId = 'public';
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    try {
+      const token = authHeader.split(' ')[1];
+      const decoded = jwt.verify(token, accessSecret);
+      userId = decoded.id;
+      const reqUser = await User.findById(decoded.id).select('coordinates');
+      if (reqUser && reqUser.coordinates) {
+        userCoords = reqUser.coordinates;
+      }
+    } catch (err) {
+      // ignore token error
+    }
+  }
+
   try {
-    const cacheKey = `listings:search:${JSON.stringify(req.query)}`;
+    const cacheKey = `listings:search:${userId}:${JSON.stringify(req.query)}`;
     const cachedData = await getCache(cacheKey);
     if (cachedData) {
       logger.info(`[Cache Hit] Serving search listings for key: ${cacheKey}`);
@@ -334,9 +375,22 @@ const searchListings = async (req, res) => {
     const restrictedUserIds = restrictedUsers.map(u => u._id);
     filter.seller = { $nin: restrictedUserIds };
 
+    if (req.query.nearMe === 'true' && userCoords) {
+      const allSellers = await User.find({}).select('coordinates');
+      const nearSellerIds = allSellers
+        .filter(s => {
+          if (!s.coordinates || s.coordinates.lat === undefined || s.coordinates.lng === undefined) return false;
+          const dist = getDistanceInKm(userCoords.lat, userCoords.lng, s.coordinates.lat, s.coordinates.lng);
+          return dist <= 10; // within 10 km
+        })
+        .map(s => s._id);
+
+      filter.seller = { $in: nearSellerIds, $nin: restrictedUserIds };
+    }
+
     console.log('[Search Debug] Filter:', JSON.stringify(filter));
     const listings = await Listing.find(filter)
-      .populate('seller', 'name avatarUrl spamScore scamScore')
+      .populate('seller', 'name avatarUrl spamScore scamScore coordinates')
       .populate('category', 'name')
       .skip((page - 1) * limit)
       .limit(limit)
@@ -344,7 +398,17 @@ const searchListings = async (req, res) => {
     console.log('[Search Debug] Found:', listings.length, 'listings');
     const total = await Listing.countDocuments(filter);
 
-    const responseData = { success: true, listings, total, page, pages: Math.ceil(total / limit) };
+    const populatedListings = listings.map(l => {
+      const lObj = l.toObject();
+      if (userCoords && l.seller && l.seller.coordinates) {
+        const dist = getDistanceInKm(userCoords.lat, userCoords.lng, l.seller.coordinates.lat, l.seller.coordinates.lng);
+        lObj.distanceKm = parseFloat(dist.toFixed(1));
+        lObj.isNearMe = dist <= 5;
+      }
+      return lObj;
+    });
+
+    const responseData = { success: true, listings: populatedListings, total, page, pages: Math.ceil(total / limit) };
     // Cache search results for 5 minutes (300 seconds)
     await setCache(cacheKey, responseData, 300);
     res.json(responseData);
