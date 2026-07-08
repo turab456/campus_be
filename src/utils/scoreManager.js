@@ -24,8 +24,8 @@ exports.increaseUserScore = async (userId, scoreType, amount, reason) => {
     }
 
     // Update the appropriate score
-    const oldScore = user[scoreType];
-    user[scoreType] = Math.min(user[scoreType] + amount, 100);
+    const oldScore = user[scoreType] || 0;
+    user[scoreType] = Math.min(oldScore + amount, 100);
     user.violationCount = (user.violationCount || 0) + 1;
 
     // Add warning record
