@@ -44,11 +44,9 @@ const updateProfile = async (req, res) => {
   const city = body.city;
   const state = body.state;
   const pincode = body.pincode;
-  const college = body.college;
-  const department = body.department;
-  const semester = body.semester !== undefined && body.semester !== ''
-    ? Number(body.semester)
-    : undefined;
+  const institutionName = body.institutionName;
+  const educationLevel = body.educationLevel;
+  const academicDetails = body.academicDetails;
 
   let coordinates = body.coordinates;
   if (typeof coordinates === 'string' && coordinates.trim()) {
@@ -67,9 +65,9 @@ const updateProfile = async (req, res) => {
     if (city !== undefined) updateFields.city = city;
     if (state !== undefined) updateFields.state = state;
     if (pincode !== undefined) updateFields.pincode = pincode;
-    if (college !== undefined) updateFields.college = college;
-    if (department !== undefined) updateFields.department = department;
-    if (semester !== undefined) updateFields.semester = semester;
+    if (institutionName !== undefined) updateFields.institutionName = institutionName;
+    if (educationLevel !== undefined) updateFields.educationLevel = educationLevel;
+    if (academicDetails !== undefined) updateFields.academicDetails = academicDetails;
 
     // Check if address was updated to compute coordinates
     const isAddressUpdated = 

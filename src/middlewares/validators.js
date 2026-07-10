@@ -32,9 +32,6 @@ const validateRegister = [
   body('password')
     .notEmpty().withMessage('Password is required')
     .isLength({ min: 8 }).withMessage('Password must be at least 8 characters'),
-  body('college').optional().trim().isLength({ max: 200 }).escape(),
-  body('department').optional().trim().isLength({ max: 200 }).escape(),
-  body('semester').optional().isInt({ min: 1, max: 12 }).withMessage('Semester must be 1-12'),
   handleValidationErrors
 ];
 
@@ -68,10 +65,7 @@ const validateCreateListing = [
     .isIn(['New', 'Like New', 'Very Good', 'Good', 'Acceptable']).withMessage('Invalid condition value'),
   body('author').optional().trim().isLength({ max: 200 }),
   body('originalPrice').optional().isFloat({ min: 0, max: 999999 }),
-  body('department').optional().trim().isLength({ max: 200 }),
-  body('semester').optional().isInt({ min: 1, max: 12 }),
   body('pickupLocation').optional().trim().isLength({ max: 300 }),
-  body('college').optional().trim().isLength({ max: 200 }),
   handleValidationErrors
 ];
 

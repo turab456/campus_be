@@ -18,13 +18,13 @@ const generateToken = (payload, secret, expiresIn) => {
 // @route  POST /api/auth/register
 // @access Public
 const register = async (req, res) => {
-  const { name, email, password, college, department, semester } = req.body;
+  const { name, email, password } = req.body;
   try {
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
-    const user = await User.create({ name, email, password, college, department, semester });
+    const user = await User.create({ name, email, password });
     // Send verification email (simple token link)
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verifyToken}&id=${user._id}`;
@@ -38,10 +38,15 @@ const register = async (req, res) => {
 
     try {
       await queueJob('EMAIL', {
-        from: `Campus Marketplace <${process.env.SMTP_USER}>`,
+        from: `RevoShelf <${process.env.SMTP_USER}>`,
         to: user.email,
         subject: 'Verify your email',
-        html: `<p>Hello ${user.name},</p><p>Please verify your email by clicking <a href="${verificationUrl}">here</a>.</p>`,
+        templateName: 'verify-email',
+        context: {
+          name: user.name,
+          verificationUrl,
+          subject: 'Verify your email'
+        }
       });
     } catch (queueError) {
       logger.error(`Failed to queue verification email. Error: ${queueError.stack || queueError.message}`);
@@ -136,9 +141,9 @@ const login = async (req, res) => {
       name: user.name,
       email: user.email,
       role: user.role,
-      college: user.college,
-      department: user.department,
-      semester: user.semester,
+      institutionName: user.institutionName,
+      educationLevel: user.educationLevel,
+      academicDetails: user.academicDetails,
       avatarUrl: user.avatarUrl,
       addressLine: user.addressLine,
       city: user.city,
@@ -206,10 +211,15 @@ const resendVerification = async (req, res) => {
 
     try {
       await queueJob('EMAIL', {
-        from: `Campus Marketplace <${process.env.SMTP_USER}>`,
+        from: `RevoShelf <${process.env.SMTP_USER}>`,
         to: user.email,
         subject: 'Verify your email',
-        html: `<p>Hello ${user.name},</p><p>Please verify your email by clicking <a href="${verificationUrl}">here</a>.</p>`,
+        templateName: 'verify-email',
+        context: {
+          name: user.name,
+          verificationUrl,
+          subject: 'Verify your email'
+        }
       });
     } catch (queueError) {
       logger.error(`Failed to queue verification email. Error: ${queueError.stack || queueError.message}`);

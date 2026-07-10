@@ -3,10 +3,21 @@ const Job = require('../models/Job');
 const { logger } = require('./logger');
 const transporter = require('../config/mail');
 
+const { renderTemplate } = require('./emailTemplate');
+
 // Job Handlers Registry
 const handlers = {
   EMAIL: async (payload) => {
     logger.info(`Processing EMAIL job for: ${payload.to}`);
+    
+    // Compile template if specified
+    if (payload.templateName) {
+      payload.html = renderTemplate(payload.templateName, payload.context || {});
+      // Remove template fields from payload so nodemailer doesn't complain
+      delete payload.templateName;
+      delete payload.context;
+    }
+
     await transporter.sendMail(payload);
   }
 };

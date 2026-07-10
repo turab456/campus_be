@@ -60,6 +60,14 @@ const createListing = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid category' });
     }
 
+    if (categoryDoc.name.toLowerCase() === 'books') {
+      const { educationLevel } = metadata || {};
+      if (!educationLevel) {
+        return res.status(400).json({ success: false, message: 'Education Level is required for Books' });
+      }
+      // The specific dynamic fields (Class, Board, Semester, Branch, etc.) are expected in metadata
+    }
+
     // Handle images if any
     let imageUrls = req.body.images || [];
     if (req.files && req.files.length) {
@@ -208,6 +216,22 @@ const updateListing = async (req, res) => {
       }
       if (!categoryDoc) return res.status(400).json({ success: false, message: 'Invalid category' });
       listing.category = categoryDoc._id;
+      
+      if (categoryDoc.name.toLowerCase() === 'books') {
+        const { educationLevel } = (metadata !== undefined ? metadata : listing.metadata) || {};
+        if (!educationLevel) {
+          return res.status(400).json({ success: false, message: 'Education Level is required for Books' });
+        }
+      }
+    } else if (metadata !== undefined) {
+      // If category wasn't changed but metadata was, verify if current category is Books
+      const catDoc = await Category.findById(listing.category);
+      if (catDoc && catDoc.name.toLowerCase() === 'books') {
+        const { educationLevel } = metadata || {};
+        if (!educationLevel) {
+          return res.status(400).json({ success: false, message: 'Education Level is required for Books' });
+        }
+      }
     }
 
     if (title) listing.title = title;
