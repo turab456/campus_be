@@ -16,6 +16,7 @@ const {
 } = require('../utils/scoreManager');
 const { logger } = require('../utils/logger');
 const { createNotification } = require('./notificationController');
+const { clearCache } = require('../utils/redis');
 
 // @desc   Report unwanted/spam message
 // @route  POST /api/violations/report-message
@@ -43,6 +44,15 @@ exports.reportUnwantedMessage = async (req, res) => {
       return res.status(400).json({ 
         success: false, 
         message: 'You cannot report your own messages' 
+      });
+    }
+
+    // Security: verify the reporter is a participant in the chat this message belongs to
+    const chat = await Chat.findById(message.chat);
+    if (!chat || (chat.buyer.toString() !== reportedBy && chat.seller.toString() !== reportedBy)) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not authorized to report this message'
       });
     }
 
@@ -110,9 +120,25 @@ exports.markListingAsSold = async (req, res) => {
       }).populate('buyer');
 
       if (!chat) {
-        return res.status(400).json({ 
-          success: false, 
-          message: 'No active chat inquiries found. Please specify a buyer.' 
+        // Direct mark as sold since no one has messaged yet
+        listing.isSold = true;
+        listing.salePending = false;
+        listing.soldAt = new Date();
+        await listing.save();
+
+        // Invalidate caches
+        await clearCache(`user:profile:${sellerId}`);
+        await clearCache('listings:*');
+
+        logger.info(`Listing marked as sold directly: ${listingId} by seller ${sellerId}`);
+
+        return res.json({
+          success: true,
+          message: 'Listing marked as sold directly.',
+          data: {
+            listing,
+            requiresConfirmation: false
+          }
         });
       }
       targetBuyerId = chat.buyer._id;
@@ -144,6 +170,11 @@ exports.markListingAsSold = async (req, res) => {
       relatedChat: relatedChatId,
       relatedUser: sellerId,
     });
+
+    // Invalidate caches
+    await clearCache(`user:profile:${sellerId}`);
+    await clearCache(`user:profile:${targetBuyerId}`);
+    await clearCache('listings:*');
 
     res.json({
       success: true,
@@ -211,6 +242,11 @@ exports.confirmReceipt = async (req, res) => {
       relatedUser: buyerId,
     });
 
+    // Invalidate caches
+    await clearCache(`user:profile:${listing.seller}`);
+    await clearCache(`user:profile:${buyerId}`);
+    await clearCache('listings:*');
+
     res.json({
       success: true,
       message: 'Receipt confirmed successfully. Transaction completed.',
@@ -239,9 +275,11 @@ exports.cancelPendingSale = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Listing not found' });
     }
 
+    const buyerId = listing.buyer;
+
     // Check authorization
     const isSeller = listing.seller.toString() === userId;
-    const isBuyer = listing.buyer && listing.buyer.toString() === userId;
+    const isBuyer = buyerId && buyerId.toString() === userId;
 
     if (!isSeller && !isBuyer) {
       return res.status(403).json({
@@ -336,12 +374,12 @@ exports.cancelPendingSale = async (req, res) => {
       });
     } else {
       // Seller canceled — notify buyer
-      if (listing.buyer) {
-        const chatDoc = await Chat.findOne({ book: listing._id, buyer: listing.buyer });
+      if (buyerId) {
+        const chatDoc = await Chat.findOne({ book: listing._id, buyer: buyerId });
         const relatedChatId = chatDoc ? chatDoc._id : undefined;
 
         await createNotification({
-          recipient: listing.buyer,
+          recipient: buyerId,
           type: 'sale_canceled',
           title: 'Sale Canceled by Seller',
           message: `The seller has canceled the pending sale for "${listing.title}". The listing is now available again.`,
@@ -350,6 +388,13 @@ exports.cancelPendingSale = async (req, res) => {
         });
       }
     }
+
+    // Invalidate caches
+    await clearCache(`user:profile:${listing.seller}`);
+    if (buyerId) {
+      await clearCache(`user:profile:${buyerId}`);
+    }
+    await clearCache('listings:*');
 
     res.json({
       success: true,
@@ -364,10 +409,15 @@ exports.cancelPendingSale = async (req, res) => {
 
 // @desc   Get user violations and warnings
 // @route  GET /api/violations/warnings/:userId
-// @access Private
+// @access Private (own user or admin only)
 exports.getUserViolations = async (req, res) => {
   try {
     const { userId } = req.params;
+
+    // IDOR fix: only the user themselves or an admin can view violation data
+    if (req.user.id !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
 
     const warnings = await getUserWarnings(userId);
     const blockStatus = await isUserBlocked(userId);

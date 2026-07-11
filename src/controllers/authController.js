@@ -30,6 +30,7 @@ const register = async (req, res) => {
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verifyToken}&id=${user._id}`;
     // Store token temporarily (could be a DB field; using env for brevity)
     user.verificationToken = verifyToken;
+    user.verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await user.save();
 
     // Log verification link to console to allow local testing and bypass SMTP port blocks on Render
@@ -74,8 +75,13 @@ const verifyEmail = async (req, res) => {
     if (user.verificationToken !== token) {
       return res.status(400).json({ success: false, message: 'Invalid token' });
     }
+    // Check token expiry
+    if (user.verificationTokenExpiresAt && new Date() > user.verificationTokenExpiresAt) {
+      return res.status(400).json({ success: false, message: 'Verification link has expired. Please request a new one.' });
+    }
     user.isVerified = true;
     user.verificationToken = undefined;
+    user.verificationTokenExpiresAt = undefined;
     await user.save();
     res.json({ success: true, message: 'Email verified. You can now log in.' });
   } catch (error) {
@@ -193,16 +199,16 @@ const resendVerification = async (req, res) => {
     if (!email) {
       return res.status(400).json({ success: false, message: 'Email is required' });
     }
+    // Always return a generic message to prevent user enumeration
     const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
-    }
-    if (user.isVerified) {
-      return res.status(400).json({ success: false, message: 'Email is already verified. You can now log in.' });
+    if (!user || user.isVerified) {
+      // Return 200 even if user doesn't exist or is already verified
+      return res.json({ success: true, message: 'If this email is registered and unverified, a verification link has been sent.' });
     }
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verifyToken}&id=${user._id}`;
     user.verificationToken = verifyToken;
+    user.verificationTokenExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
     await user.save();
 
     // Log verification link to console to allow local testing and bypass SMTP port blocks on Render
@@ -224,7 +230,7 @@ const resendVerification = async (req, res) => {
     } catch (queueError) {
       logger.error(`Failed to queue verification email. Error: ${queueError.stack || queueError.message}`);
     }
-    res.json({ success: true, message: 'Verification email resent successfully' });
+    res.json({ success: true, message: 'If this email is registered and unverified, a verification link has been sent.' });
   } catch (error) {
     logger.error('Resend verification link error', error);
     res.status(500).json({ success: false, message: 'Server error' });

@@ -61,9 +61,16 @@ router.post('/fraud-reports', createFraudReport);
 // Spam & Messages
 router.get('/spam-reports', getSpamReports);
 router.get('/messages/:messageId', async (req, res) => {
+  const mongoose = require('mongoose');
   const Message = require('../models/Message');
   try {
-    const message = await Message.findById(req.params.messageId).populate('sender');
+    if (!mongoose.Types.ObjectId.isValid(req.params.messageId)) {
+      return res.status(400).json({ success: false, message: 'Invalid message ID' });
+    }
+    const message = await Message.findById(req.params.messageId).populate('sender', 'name email');
+    if (!message) {
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
     res.json({ success: true, data: message });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Error fetching message' });

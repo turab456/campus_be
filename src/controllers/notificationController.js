@@ -1,5 +1,6 @@
 // backend/src/controllers/notificationController.js
 const Notification = require('../models/Notification');
+const Chat = require('../models/Chat');
 const { logger } = require('../utils/logger');
 
 const { emitToUser } = require('../utils/socket');
@@ -92,8 +93,15 @@ exports.getNotifications = async (req, res) => {
  */
 exports.getUnreadCount = async (req, res) => {
   try {
-    const unreadCount = await Notification.countDocuments({ recipient: req.user.id, read: false });
-    res.json({ success: true, unreadCount });
+    const userId = req.user.id;
+    const unreadCount = await Notification.countDocuments({ recipient: userId, read: false });
+    const unreadChatCount = await Chat.countDocuments({
+      $or: [
+        { buyer: userId, unreadBuyer: true },
+        { seller: userId, unreadSeller: true }
+      ]
+    });
+    res.json({ success: true, unreadCount, unreadChatCount });
   } catch (error) {
     logger.error('Get unread count error:', error.message);
     res.status(500).json({ success: false, message: 'Error fetching unread count' });

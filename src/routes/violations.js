@@ -16,6 +16,7 @@ const {
 const protect = require('../middlewares/auth');
 const isAdmin = require('../middlewares/isAdmin');
 const checkBlocked = require('../middlewares/checkBlocked');
+const { reportLimiter } = require('../middlewares/rateLimiter');
 
 const router = express.Router();
 
@@ -27,7 +28,7 @@ router.use(protect);
 router.use(checkBlocked);
 
 // User routes
-router.post('/report-message', reportUnwantedMessage);
+router.post('/report-message', reportLimiter, reportUnwantedMessage);
 router.post('/mark-sold/:listingId', markListingAsSold);
 router.post('/confirm-receipt/:listingId', confirmReceipt);
 router.post('/cancel-sale/:listingId', cancelPendingSale);

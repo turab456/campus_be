@@ -30,6 +30,7 @@ const listingSchema = new mongoose.Schema({
   approved: { type: Boolean, default: true },
   rejectReason: { type: String },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
+  lastEditNotificationAt: { type: Date },
 }, { timestamps: true });
 
 // Optimize query performances with database indexes

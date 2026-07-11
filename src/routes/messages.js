@@ -6,8 +6,9 @@ const protect = require('../middlewares/auth');
 const checkBlocked = require('../middlewares/checkBlocked');
 const { validateSendMessage } = require('../middlewares/validators');
 const { moderateMessageMiddleware } = require('../middlewares/contentModeration');
+const { messageLimiter } = require('../middlewares/rateLimiter');
 
 router.get('/:chatId', protect, messageController.getMessages);
-router.post('/', protect, checkBlocked, validateSendMessage, moderateMessageMiddleware, messageController.sendMessage);
+router.post('/', protect, checkBlocked, messageLimiter, validateSendMessage, moderateMessageMiddleware, messageController.sendMessage);
 
 module.exports = router;

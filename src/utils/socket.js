@@ -8,9 +8,18 @@ let io;
 const activeUsers = new Map();
 
 const initSocket = (server) => {
+  const allowedOrigins = [
+    process.env.CLIENT_URL,
+    'https://revoshelf.netlify.app',
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://192.168.31.124:5173',
+    'http://172.20.10.14:5173',
+  ].filter(Boolean);
+
   io = socketIO(server, {
     cors: {
-      origin: process.env.CLIENT_URL || 'http://localhost:5173',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
       credentials: true
     },
@@ -19,35 +28,36 @@ const initSocket = (server) => {
   });
 
   io.on('connection', (socket) => {
-    // Register mapping between user ID and socket ID
-    // Requires JWT authentication to prevent spoofing
+    // Register mapping between user ID and socket ID.
+    // JWT token is MANDATORY to prevent user impersonation.
     socket.on('register', (data) => {
-      // Accept either a plain userId string (backward compat) or { userId, token }
       let userId = null;
       let token = null;
 
-      if (typeof data === 'string') {
-        // Legacy: just a userId string — still accept but log warning
-        userId = data;
-      } else if (data && typeof data === 'object') {
+      if (data && typeof data === 'object') {
         userId = data.userId;
         token = data.token;
       }
 
-      if (!userId) return;
+      // Require both userId and token
+      if (!userId || !token) {
+        console.warn(`[Socket] Registration rejected: missing userId or token. Socket: ${socket.id}`);
+        socket.disconnect(true);
+        return;
+      }
 
-      // If token is provided, verify it
-      if (token) {
-        try {
-          const decoded = jwt.verify(token, accessSecret);
-          if (decoded.id !== userId) {
-            console.warn(`[Socket] Token userId mismatch: token=${decoded.id}, claimed=${userId}`);
-            return;
-          }
-        } catch (err) {
-          console.warn(`[Socket] Invalid token for userId: ${userId}`);
+      // Verify the token
+      try {
+        const decoded = jwt.verify(token, accessSecret);
+        if (decoded.id !== userId) {
+          console.warn(`[Socket] Token userId mismatch: token=${decoded.id}, claimed=${userId}. Socket: ${socket.id}`);
+          socket.disconnect(true);
           return;
         }
+      } catch (err) {
+        console.warn(`[Socket] Invalid token for userId: ${userId}. Socket: ${socket.id}`);
+        socket.disconnect(true);
+        return;
       }
 
       activeUsers.set(userId, socket.id);

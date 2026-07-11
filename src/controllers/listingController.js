@@ -3,12 +3,16 @@ const mongoose = require('mongoose');
 const Listing = require('../models/Listing');
 const Category = require('../models/Category');
 const User = require('../models/User');
+const Chat = require('../models/Chat');
+const Message = require('../models/Message');
+const { emitToUser } = require('../utils/socket');
 const { logger } = require('../utils/logger');
 const { getCache, setCache, clearCache } = require('../utils/redis');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 const jwt = require('jsonwebtoken');
 const { accessSecret } = require('../config/jwt');
 const { getDistanceInKm } = require('../utils/geocoder');
+const { createNotification } = require('./notificationController');
 
 /**
  * Escape special regex characters from user input to prevent ReDoS / NoSQL injection.
@@ -21,7 +25,7 @@ const escapeRegex = (str) => {
 // @route  POST /api/listings
 // @access Private
 const createListing = async (req, res) => {
-  const {
+  let {
     title,
     description,
     price,
@@ -38,6 +42,14 @@ const createListing = async (req, res) => {
     isPopular,
     metadata
   } = req.body;
+
+  if (typeof metadata === 'string') {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch (e) {
+      metadata = {};
+    }
+  }
 
   try {
     // Resolve category
@@ -102,12 +114,14 @@ const createListing = async (req, res) => {
       semester,
       pickupLocation,
       college,
-      isFeatured: isFeatured || false,
-      isPopular: isPopular || false,
+      // isFeatured and isPopular are admin-only fields — never trust client values
+      isFeatured: false,
+      isPopular: false,
       metadata: metadata || {}
     });
     // Invalidate listings caches
     await clearCache('listings:*');
+    await clearCache(`user:profile:${req.user.id}`);
     res.status(201).json({ success: true, listing });
   } catch (error) {
     logger.error('Create listing error', error);
@@ -170,7 +184,7 @@ const getListing = async (req, res) => {
 // @route  PUT /api/listings/:id
 // @access Private (owner only)
 const updateListing = async (req, res) => {
-  const {
+  let {
     title,
     description,
     price,
@@ -190,6 +204,14 @@ const updateListing = async (req, res) => {
     metadata
   } = req.body;
 
+  if (typeof metadata === 'string') {
+    try {
+      metadata = JSON.parse(metadata);
+    } catch (e) {
+      metadata = {};
+    }
+  }
+
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid listing ID' });
@@ -198,8 +220,13 @@ const updateListing = async (req, res) => {
     if (!listing) {
       return res.status(404).json({ success: false, message: 'Listing not found' });
     }
+    const oldPrice = listing.price;
     if (listing.seller.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+    
+    if (listing.isSold) {
+      return res.status(400).json({ success: false, message: 'Cannot edit a sold listing' });
     }
 
     const identifier = categoryId || categoryValue;
@@ -244,10 +271,9 @@ const updateListing = async (req, res) => {
     if (semester) listing.semester = semester;
     if (pickupLocation) listing.pickupLocation = pickupLocation;
     if (college) listing.college = college;
-    if (isFeatured !== undefined) listing.isFeatured = isFeatured;
-    if (isPopular !== undefined) listing.isPopular = isPopular;
-    if (isSold !== undefined) listing.isSold = isSold;
-    if (status !== undefined) listing.isSold = (status === 'sold');
+    // NOTE: isFeatured, isPopular, isSold, and status are privileged fields.
+    // They must NEVER be modified via the user-facing update endpoint.
+    // isSold is managed exclusively via the /violations/mark-sold transaction flow.
 
     // Handle new images
     if (req.files && req.files.length) {
@@ -273,8 +299,62 @@ const updateListing = async (req, res) => {
     if (metadata !== undefined) listing.metadata = metadata;
 
     await listing.save();
+    
+    // Notification logic
+    const now = Date.now();
+    const fiveMinutes = 5 * 60 * 1000;
+    if (!listing.lastEditNotificationAt || (now - new Date(listing.lastEditNotificationAt).getTime() > fiveMinutes)) {
+      listing.lastEditNotificationAt = new Date(now);
+      await listing.save(); // Save the new notification timestamp
+      
+      const chats = await Chat.find({ book: listing._id });
+      
+      let systemMessageText = 'Seller updated this listing. Tap to view the latest details.';
+      if (price !== undefined && Number(price) !== oldPrice) {
+        if (Number(price) < oldPrice) {
+          systemMessageText = `Seller dropped the price to ₹${price}. Tap to view the latest details.`;
+        } else {
+          systemMessageText = `Seller changed the price to ₹${price}. Tap to view the latest details.`;
+        }
+      }
+
+      const messagePromises = chats.map(async (chat) => {
+        const msg = await Message.create({
+          chat: chat._id,
+          sender: req.user.id,
+          text: systemMessageText,
+        });
+
+        await createNotification({
+          recipient: chat.buyer,
+          type: 'general',
+          title: 'Listing Updated',
+          message: systemMessageText,
+          relatedListing: listing._id,
+          relatedChat: chat._id
+        });
+        chat.lastMessage = msg.text;
+        chat.lastMessageTime = msg.timestamp;
+        chat.unreadBuyer = true;
+        await chat.save();
+
+        const mappedMessage = {
+          id: msg._id.toString(),
+          chatId: msg.chat.toString(),
+          senderId: msg.sender.toString(),
+          text: msg.text,
+          timestamp: msg.timestamp.toISOString()
+        };
+        
+        emitToUser(chat.buyer.toString(), 'message', mappedMessage);
+        return msg;
+      });
+      await Promise.all(messagePromises);
+    }
+
     // Invalidate listings caches
     await clearCache('listings:*');
+    await clearCache(`user:profile:${req.user.id}`);
     res.json({ success: true, listing });
   } catch (error) {
     logger.error('Update listing error', error);
@@ -300,6 +380,7 @@ const deleteListing = async (req, res) => {
     await Listing.deleteOne({ _id: listing._id });
     // Invalidate listings caches
     await clearCache('listings:*');
+    await clearCache(`user:profile:${req.user.id}`);
     res.json({ success: true, message: 'Listing removed' });
   } catch (error) {
     logger.error('Delete listing error', error);
@@ -316,7 +397,7 @@ const searchListings = async (req, res) => {
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const { search, category, condition, minPrice, maxPrice, sort } = req.query;
 
-  const filter = { isSold: false, flagged: { $ne: true } }; // Only show listings that haven't been sold and aren't flagged
+  const filter = { flagged: { $ne: true } }; // Show all listings including sold ones, but not flagged ones
 
 
 
@@ -412,14 +493,12 @@ const searchListings = async (req, res) => {
       filter.seller = { $in: nearSellerIds, $nin: restrictedUserIds };
     }
 
-    console.log('[Search Debug] Filter:', JSON.stringify(filter));
     const listings = await Listing.find(filter)
       .populate('seller', 'name avatarUrl spamScore scamScore coordinates')
       .populate('category', 'name')
       .skip((page - 1) * limit)
       .limit(limit)
       .sort(sortOption);
-    console.log('[Search Debug] Found:', listings.length, 'listings');
     const total = await Listing.countDocuments(filter);
 
     const populatedListings = listings.map(l => {
