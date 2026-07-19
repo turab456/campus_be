@@ -38,7 +38,9 @@ app.use(cors({
     "http://localhost:5173",
     "http://localhost:5174",
     "http://192.168.31.124:5173",
-    "http://172.20.10.14:5173"
+    "http://172.20.10.14:5173",
+    "https://www.revoshelf.com",
+    "https://revoshelf.com"
   ],
   credentials: true,
 }));
