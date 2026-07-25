@@ -20,7 +20,8 @@ jobs:
 
           script: |
             set -e
-
+            export HOME=/home/turab
+            export GIT_SSH_COMMAND="ssh -F /home/turab/.ssh/config"
             cd /var/www/revoshelf/campus_be
 
             git fetch origin
