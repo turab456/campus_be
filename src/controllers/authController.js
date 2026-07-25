@@ -237,4 +237,93 @@ const resendVerification = async (req, res) => {
   }
 };
 
-module.exports = { register, verifyEmail, login, refreshToken, logout, resendVerification };
+// @desc   Forgot password
+// @route  POST /api/auth/forgot-password
+// @access Public
+const forgotPassword = async (req, res) => {
+  const { email } = req.body;
+  try {
+    if (!email) {
+      return res.status(400).json({ success: false, message: 'Email is required' });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'No account with this email address exists.' });
+    }
+
+    // Generate reset token and expires time (1 hour)
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpiresAt = new Date(Date.now() + 3600000); // 1 hour
+    await user.save();
+
+    const resetUrl = `${process.env.CLIENT_URL}/reset-password?token=${resetToken}`;
+    logger.info(`[Password Reset Link]: ${resetUrl}`);
+    console.log(`\n✉️ [Password Reset Link]: ${resetUrl}\n`);
+
+    try {
+      await queueJob('EMAIL', {
+        from: `RevoShelf <${process.env.SMTP_USER}>`,
+        to: user.email,
+        subject: 'Reset your password',
+        templateName: 'reset-password',
+        context: {
+          name: user.name,
+          resetUrl,
+          subject: 'Reset your password'
+        }
+      });
+    } catch (queueError) {
+      logger.error(`Failed to queue reset password email. Error: ${queueError.stack || queueError.message}`);
+    }
+
+    res.json({ success: true, message: 'Password recovery email sent successfully.' });
+  } catch (error) {
+    logger.error('Forgot password error', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// @desc   Reset password
+// @route  POST /api/auth/reset-password
+// @access Public
+const resetPassword = async (req, res) => {
+  const { token, password } = req.body;
+  try {
+    if (!token || !password) {
+      return res.status(400).json({ success: false, message: 'Token and new password are required' });
+    }
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpiresAt: { $gt: Date.now() }
+    });
+
+    if (!user) {
+      return res.status(400).json({ success: false, message: 'Password reset token is invalid or has expired.' });
+    }
+
+    // Update password (pre-save hook will hash it automatically)
+    user.password = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpiresAt = undefined;
+    await user.save();
+
+    res.json({ success: true, message: 'Password has been reset successfully.' });
+  } catch (error) {
+    logger.error('Reset password error', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+module.exports = { 
+  register, 
+  verifyEmail, 
+  login, 
+  refreshToken, 
+  logout, 
+  resendVerification,
+  forgotPassword,
+  resetPassword
+};
