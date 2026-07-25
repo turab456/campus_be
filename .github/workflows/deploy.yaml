@@ -30,4 +30,4 @@ jobs:
 
             pm2 restart revoshelf-backend
 
-            pm2 saves
+            pm2 save
