@@ -10,8 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Deploy to Hostinger VPS
+      - name: Deploy Backend to VPS
         uses: appleboy/ssh-action@v1.2.2
+
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
@@ -20,15 +21,26 @@ jobs:
 
           script: |
             set -e
+
+            echo "Starting deployment..."
+
             export HOME=/home/turab
-            export GIT_SSH_COMMAND="ssh -F /home/turab/.ssh/config"
+
             cd /var/www/revoshelf/campus_be
 
-            git fetch origin
+            echo "Fetching latest code..."
+            git fetch origin main
+
+            echo "Resetting to latest main branch..."
             git reset --hard origin/main
 
+            echo "Installing dependencies..."
             npm ci
 
+            echo "Restarting PM2..."
             pm2 restart revoshelf-backend
 
+            echo "Saving PM2 state..."
             pm2 save
+
+            echo "Deployment completed successfully!"
