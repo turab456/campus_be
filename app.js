@@ -23,6 +23,7 @@ const messageRouter = require('./src/routes/messages');
 const notificationRouter = require('./src/routes/notifications');
 const adminRouter = require('./src/routes/admin');
 const violationsRouter = require('./src/routes/violations');
+const sitemapRouter = require('./src/routes/sitemap');
 
 const app = express();
 
@@ -31,6 +32,14 @@ app.disable('x-powered-by');
 
 // Global middlewares
 app.use(helmet());
+app.use((req, res, next) => {
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+});
 app.use(cors({
   origin: [
     process.env.CLIENT_URL,
@@ -67,6 +76,7 @@ app.use('/api/messages', messageRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/violations', violationsRouter);
+app.use('/sitemap.xml', sitemapRouter);
 
 // Swagger docs — only available in development
 if (process.env.NODE_ENV !== 'production') {

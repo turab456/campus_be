@@ -22,6 +22,8 @@ const userSchema = new mongoose.Schema({
   isVerified: { type: Boolean, default: false },
   verificationToken: { type: String },
   verificationTokenExpiresAt: { type: Date },
+  resetPasswordToken: { type: String },
+  resetPasswordExpiresAt: { type: Date },
   role: { type: String, enum: ['student', 'admin'], default: 'student' },
   wishlist: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Listing' }],
   rating: { type: Number, default: 5.0 },
