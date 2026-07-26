@@ -11,8 +11,8 @@ router.post('/register', authLimiter, validateRegister, register);
 router.get('/verify-email', verifyEmail);
 router.post('/login', authLimiter, validateLogin, login);
 router.post('/resend-verification', authLimiter, resendVerification);
-router.post('/forgot-password', authLimiter, forgotPassword);
-router.post('/reset-password', authLimiter, resetPassword);
+router.post('/forgot-password', forgotPassword);
+router.post('/reset-password', resetPassword);
 router.get('/refresh-token', refreshToken);
 router.post('/logout', logout);
 
