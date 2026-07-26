@@ -27,6 +27,9 @@ const sitemapRouter = require('./src/routes/sitemap');
 
 const app = express();
 
+// Trust reverse proxy headers (e.g. Nginx X-Forwarded-For)
+app.set('trust proxy', 1);
+
 // Disable x-powered-by header to hide Express fingerprint
 app.disable('x-powered-by');
 
