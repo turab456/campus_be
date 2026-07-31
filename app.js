@@ -23,6 +23,7 @@ const messageRouter = require('./src/routes/messages');
 const notificationRouter = require('./src/routes/notifications');
 const adminRouter = require('./src/routes/admin');
 const violationsRouter = require('./src/routes/violations');
+const supportRouter = require('./src/routes/support');
 const sitemapRouter = require('./src/routes/sitemap');
 
 const app = express();
@@ -79,6 +80,7 @@ app.use('/api/messages', messageRouter);
 app.use('/api/notifications', notificationRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/violations', violationsRouter);
+app.use('/api/support', supportRouter);
 app.use('/sitemap.xml', sitemapRouter);
 
 // Swagger docs — only available in development

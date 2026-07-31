@@ -1,7 +1,7 @@
 // backend/src/utils/jobQueue.js
 const Job = require('../models/Job');
 const { logger } = require('./logger');
-const transporter = require('../config/mail');
+const mailConfig = require('../config/mail');
 
 const { renderTemplate } = require('./emailTemplate');
 
@@ -18,7 +18,8 @@ const handlers = {
       delete payload.context;
     }
 
-    await transporter.sendMail(payload);
+    const activeTransporter = mailConfig.getTransporter(payload.from);
+    await activeTransporter.sendMail(payload);
   }
 };
 

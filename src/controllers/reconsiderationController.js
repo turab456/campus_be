@@ -3,6 +3,8 @@ const ReconsiderationTicket = require('../models/ReconsiderationTicket');
 const User = require('../models/User');
 const { logger } = require('../utils/logger');
 const { sendPushNotification } = require('../utils/fcm');
+const { queueJob } = require('../utils/jobQueue');
+const { getFromAddress } = require('../config/mail');
 
 // Create a new reconsideration ticket (User action)
 exports.createTicket = async (req, res) => {
@@ -43,6 +45,24 @@ exports.createTicket = async (req, res) => {
     });
 
     logger.info(`Reconsideration ticket created for user: ${user.email}`);
+
+    // Send appeal received email from support@revoshelf.com
+    try {
+      await queueJob('EMAIL', {
+        from: getFromAddress('support'),
+        to: user.email,
+        subject: 'Account Appeal Received - RevoShelf',
+        templateName: 'appeal-received',
+        context: {
+          name: user.name,
+          reason: reason.trim(),
+          subject: 'Account Appeal Received - RevoShelf'
+        }
+      });
+    } catch (err) {
+      logger.error(`Failed to queue appeal received email for user ${user.email}: ${err.message}`);
+    }
+
     res.status(201).json({ success: true, message: 'Appeal ticket submitted successfully.', ticket });
   } catch (error) {
     logger.error('Create appeal error', error);
@@ -154,6 +174,24 @@ exports.resolveTicket = async (req, res) => {
     ticket.adminComment = adminComment || '';
     ticket.resolvedAt = new Date();
     await ticket.save();
+
+    // Send appeal resolved email from support@revoshelf.com
+    try {
+      await queueJob('EMAIL', {
+        from: getFromAddress('support'),
+        to: user.email,
+        subject: `Account Appeal ${action === 'approve' ? 'Approved' : 'Rejected'} - RevoShelf`,
+        templateName: 'appeal-resolved',
+        context: {
+          name: user.name,
+          approved: action === 'approve',
+          adminComment: adminComment || '',
+          subject: `Account Appeal ${action === 'approve' ? 'Approved' : 'Rejected'} - RevoShelf`
+        }
+      });
+    } catch (err) {
+      logger.error(`Failed to queue appeal resolved email for user ${user.email}: ${err.message}`);
+    }
 
     res.json({ success: true, message: `Appeal has been ${ticket.status}.`, ticket });
   } catch (error) {

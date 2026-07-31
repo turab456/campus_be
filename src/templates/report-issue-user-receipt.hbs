@@ -1,0 +1,17 @@
+<h2>Support Ticket Raised</h2>
+<p>Hello {{name}},</p>
+<p>We've received your issue report regarding <strong>{{topic}}</strong>. A support ticket has been created successfully.</p>
+
+{{#if ticketId}}
+<p><strong>Ticket ID:</strong> <span style="font-family: monospace; background-color: #f4f4f5; padding: 2px 6px; border-radius: 4px;">{{ticketId}}</span></p>
+{{/if}}
+
+<p>Our support team is investigating the issue and we'll get back to you as soon as possible. Usually we respond within 24 hours on business days.</p>
+
+<div style="background-color: #fafafa; border-left: 4px solid #ef4444; padding: 15px; margin: 20px 0; font-size: 14px; border-radius: 0 8px 8px 0; color: #52525b;">
+  <strong style="color: #18181b; display: block; margin-bottom: 5px;">Report Description:</strong>
+  <p style="margin: 0; line-height: 1.5; font-style: italic; white-space: pre-wrap;">"{{message}}"</p>
+</div>
+
+<p>If you have any further details to provide, feel free to reply to this email, and our agents will receive it.</p>
+<p>Best regards,<br>The RevoShelf Support Team</p>

@@ -8,6 +8,7 @@ const { logger } = require('../utils/logger');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const { getFromAddress } = require('../config/mail');
 
 // Helper to generate tokens
 const generateToken = (payload, secret, expiresIn) => {
@@ -39,7 +40,7 @@ const register = async (req, res) => {
 
     try {
       await queueJob('EMAIL', {
-        from: `RevoShelf <${process.env.SMTP_USER}>`,
+        from: getFromAddress('noreply'),
         to: user.email,
         subject: 'Verify your email',
         templateName: 'verify-email',
@@ -217,7 +218,7 @@ const resendVerification = async (req, res) => {
 
     try {
       await queueJob('EMAIL', {
-        from: `RevoShelf <${process.env.SMTP_USER}>`,
+        from: getFromAddress('noreply'),
         to: user.email,
         subject: 'Verify your email',
         templateName: 'verify-email',
@@ -264,7 +265,7 @@ const forgotPassword = async (req, res) => {
 
     try {
       await queueJob('EMAIL', {
-        from: `RevoShelf <${process.env.SMTP_USER}>`,
+        from: getFromAddress('noreply'),
         to: user.email,
         subject: 'Reset your password',
         templateName: 'reset-password',

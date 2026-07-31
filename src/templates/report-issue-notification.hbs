@@ -1,0 +1,29 @@
+<h2>New Support Ticket Created</h2>
+<p>A new support ticket has been raised on RevoShelf.</p>
+
+<table width="100%" cellpadding="8" cellspacing="0" style="border: 1px solid #e4e4e7; border-radius: 8px; margin-top: 15px; margin-bottom: 15px; font-size: 14px;">
+  <tr style="background-color: #fafafa;">
+    <td width="30%" style="font-weight: bold; border-bottom: 1px solid #e4e4e7;">Reporter Name</td>
+    <td style="border-bottom: 1px solid #e4e4e7;">{{name}}</td>
+  </tr>
+  <tr>
+    <td style="font-weight: bold; border-bottom: 1px solid #e4e4e7;">Reporter Email</td>
+    <td style="border-bottom: 1px solid #e4e4e7;"><a href="mailto:{{email}}" style="color: #038F78;">{{email}}</a></td>
+  </tr>
+  <tr style="background-color: #fafafa;">
+    <td style="font-weight: bold; border-bottom: 1px solid #e4e4e7;">Issue Type</td>
+    <td style="border-bottom: 1px solid #e4e4e7;">{{topic}}</td>
+  </tr>
+  {{#if ticketId}}
+  <tr>
+    <td style="font-weight: bold; border-bottom: 1px solid #e4e4e7;">Ticket ID</td>
+    <td style="border-bottom: 1px solid #e4e4e7; font-family: monospace;">{{ticketId}}</td>
+  </tr>
+  {{/if}}
+  <tr style="background-color: #fafafa;">
+    <td style="font-weight: bold; vertical-align: top;">Description</td>
+    <td style="white-space: pre-wrap; line-height: 1.5;">{{message}}</td>
+  </tr>
+</table>
+
+<p>Please resolve this ticket through the admin panel or contact the reporter at the email above.</p>
