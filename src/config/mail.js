@@ -38,16 +38,20 @@ const getTransporter = (from) => {
   
   const fromStr = String(from).toLowerCase();
   
+  const hasValidCreds = (user, pass) => {
+    return user && pass && !pass.includes('your_') && pass.trim() !== '';
+  };
+
   if (fromStr.includes('no-reply@revoshelf.com') || fromStr.includes('noreply')) {
-    if (process.env.SMTP_NOREPLY_USER && process.env.SMTP_NOREPLY_PASS) {
+    if (hasValidCreds(process.env.SMTP_NOREPLY_USER, process.env.SMTP_NOREPLY_PASS)) {
       return transporters.noreply;
     }
   } else if (fromStr.includes('contact@revoshelf.com') || fromStr.includes('contact')) {
-    if (process.env.SMTP_CONTACT_USER && process.env.SMTP_CONTACT_PASS) {
+    if (hasValidCreds(process.env.SMTP_CONTACT_USER, process.env.SMTP_CONTACT_PASS)) {
       return transporters.contact;
     }
   } else if (fromStr.includes('support@revoshelf.com') || fromStr.includes('support')) {
-    if (process.env.SMTP_SUPPORT_USER && process.env.SMTP_SUPPORT_PASS) {
+    if (hasValidCreds(process.env.SMTP_SUPPORT_USER, process.env.SMTP_SUPPORT_PASS)) {
       return transporters.support;
     }
   }
