@@ -137,10 +137,11 @@ const login = async (req, res) => {
     const accessToken = generateToken({ id: user._id, role: user.role }, accessSecret, accessExpiresIn);
     const refreshToken = generateToken({ id: user._id }, refreshSecret, refreshExpiresIn);
     // Optionally set httpOnly cookie with maxAge to persist across browser/PWA closures
+    const isProd = process.env.NODE_ENV === 'production';
     res.cookie('refreshToken', refreshToken, {
       httpOnly: true,
-      sameSite: 'strict',
-      secure: process.env.NODE_ENV === 'production',
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     res.json({ success: true, accessToken, user: {
