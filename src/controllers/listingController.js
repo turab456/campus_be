@@ -473,11 +473,14 @@ const searchListings = async (req, res) => {
       return res.json(cachedData);
     }
 
-    // Exclude listings from flagged or blocked users
+    // Exclude listings from flagged or blocked users, and the current user
     const restrictedUsers = await User.find({
       $or: [{ blocked: true }, { flagged: true }]
     }).select('_id');
     const restrictedUserIds = restrictedUsers.map(u => u._id);
+    if (userId && userId !== 'public') {
+      restrictedUserIds.push(new mongoose.Types.ObjectId(userId));
+    }
     filter.seller = { $nin: restrictedUserIds };
 
     if (req.query.nearMe === 'true' && userCoords) {
