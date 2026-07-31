@@ -66,17 +66,17 @@ const getTransporter = (from) => {
 const getFromAddress = (type) => {
   if (type === 'noreply') {
     const user = process.env.SMTP_NOREPLY_USER || process.env.SMTP_USER || 'no-reply@revoshelf.com';
-    return `RevoShelf <${user}>`;
+    return `"RevoShelf" <${user}>`;
   }
   if (type === 'contact') {
     const user = process.env.SMTP_CONTACT_USER || process.env.SMTP_USER || 'contact@revoshelf.com';
-    return `RevoShelf Contact <${user}>`;
+    return `"RevoShelf Contact" <${user}>`;
   }
   if (type === 'support') {
     const user = process.env.SMTP_SUPPORT_USER || process.env.SMTP_USER || 'support@revoshelf.com';
-    return `RevoShelf Support <${user}>`;
+    return `"RevoShelf Support" <${user}>`;
   }
-  return `RevoShelf <${process.env.SMTP_USER || 'no-reply@revoshelf.com'}>`;
+  return `"RevoShelf" <${process.env.SMTP_USER || 'no-reply@revoshelf.com'}>`;
 };
 
 // Export both the main transporter (for backwards compatibility) and helper functions
