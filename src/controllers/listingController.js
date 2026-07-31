@@ -139,7 +139,7 @@ const getListing = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid listing ID' });
     }
     const listing = await Listing.findById(req.params.id)
-      .populate('seller', 'name avatarUrl spamScore scamScore flagged blocked coordinates institutionName')
+      .populate('seller', 'name avatarUrl spamScore scamScore flagged blocked coordinates institutionName rating reviewsCount')
       .populate('category', 'name');
     if (!listing) {
       return res.status(404).json({ success: false, message: 'Listing not found' });
@@ -494,7 +494,7 @@ const searchListings = async (req, res) => {
     }
 
     const listings = await Listing.find(filter)
-      .populate('seller', 'name avatarUrl spamScore scamScore coordinates institutionName')
+      .populate('seller', 'name avatarUrl spamScore scamScore coordinates institutionName rating reviewsCount')
       .populate('category', 'name')
       .skip((page - 1) * limit)
       .limit(limit)
