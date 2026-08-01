@@ -81,7 +81,10 @@ const createListing = async (req, res) => {
     }
 
     // Handle images if any
-    let imageUrls = req.body.images || [];
+    let imageUrls = [];
+    if (req.body.images) {
+      imageUrls = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+    }
     if (req.files && req.files.length) {
       const uploadPromises = req.files.map(file => cloudinaryHelper.uploadFromBuffer(file.buffer));
       const uploadedUrls = await Promise.all(uploadPromises);
@@ -291,13 +294,17 @@ const updateListing = async (req, res) => {
     // They must NEVER be modified via the user-facing update endpoint.
     // isSold is managed exclusively via the /violations/mark-sold transaction flow.
 
-    // Handle new images
+    // Handle new/existing images
+    let updatedImages = [];
+    if (req.body.images) {
+      updatedImages = Array.isArray(req.body.images) ? req.body.images : [req.body.images];
+    }
     if (req.files && req.files.length) {
       const newUrls = await Promise.all(req.files.map(file => cloudinaryHelper.uploadFromBuffer(file.buffer)));
-      listing.images.push(...newUrls);
+      updatedImages.push(...newUrls);
     }
-    if (req.body.images) {
-      listing.images = req.body.images;
+    if (req.body.images || (req.files && req.files.length)) {
+      listing.images = updatedImages;
     }
 
     // Validate image domains to prevent SSRF/XSS vectors
