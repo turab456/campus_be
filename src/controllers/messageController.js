@@ -59,6 +59,16 @@ exports.sendMessage = async (req, res) => {
       return res.status(403).json({ success: false, message: 'Not authorized to send messages in this conversation' });
     }
 
+    // Verify associated listing is not deleted
+    const Listing = require('../models/Listing');
+    const listing = await Listing.findById(chat.book);
+    if (listing && listing.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: 'This conversation is closed because the item has been deleted by the seller.'
+      });
+    }
+
     const isBuyerSender = chat.buyer.toString() === senderId;
     const recipientId = isBuyerSender ? chat.seller.toString() : chat.buyer.toString();
 

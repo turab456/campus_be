@@ -12,7 +12,7 @@ exports.getChats = async (req, res) => {
     const chats = await Chat.find({
       $or: [{ buyer: userId }, { seller: userId }]
     })
-      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
+      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted')
       .populate('buyer', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
       .populate('seller', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
       .sort({ lastMessageTime: -1 });
@@ -27,10 +27,11 @@ exports.getChats = async (req, res) => {
         return {
           id: c._id.toString(),
           bookId: c.book ? c.book._id.toString() : '',
-          bookTitle: c.book ? c.book.title : 'Deleted Book',
+          bookTitle: c.book ? (c.book.isDeleted ? `${c.book.title} (Deleted)` : c.book.title) : 'Deleted Book',
           bookImage: c.book && c.book.images && c.book.images.length > 0 ? c.book.images[0] : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&auto=format&fit=crop&q=80',
           bookPrice: c.book ? c.book.price : 0,
           bookIsSold: c.book ? c.book.isSold : false,
+          bookIsDeleted: c.book ? !!c.book.isDeleted : true,
           buyerConfirmedReceipt: c.book ? c.book.buyerConfirmedReceipt : false,
           salePending: c.book ? c.book.salePending : false,
           buyerId: c.buyer._id.toString(),
@@ -86,7 +87,7 @@ exports.createOrGetChat = async (req, res) => {
       buyer: buyerId,
       seller: sellerId
     })
-      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
+      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted')
       .populate('buyer', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
       .populate('seller', 'name avatarUrl rating reviewsCount institutionName flagged blocked');
 
@@ -105,7 +106,7 @@ exports.createOrGetChat = async (req, res) => {
 
       // Populate fresh doc
       chat = await Chat.findById(chat._id)
-        .populate('book', 'title price images isSold buyerConfirmedReceipt salePending')
+        .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted')
         .populate('buyer', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
         .populate('seller', 'name avatarUrl rating reviewsCount institutionName flagged blocked');
     }
@@ -121,10 +122,11 @@ exports.createOrGetChat = async (req, res) => {
     const mappedChat = {
       id: chat._id.toString(),
       bookId: chat.book ? chat.book._id.toString() : '',
-      bookTitle: chat.book ? chat.book.title : 'Deleted Book',
+      bookTitle: chat.book ? (chat.book.isDeleted ? `${chat.book.title} (Deleted)` : chat.book.title) : 'Deleted Book',
       bookImage: chat.book && chat.book.images && chat.book.images.length > 0 ? chat.book.images[0] : 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=150&auto=format&fit=crop&q=80',
       bookPrice: chat.book ? chat.book.price : 0,
       bookIsSold: chat.book ? chat.book.isSold : false,
+      bookIsDeleted: chat.book ? !!chat.book.isDeleted : true,
       buyerConfirmedReceipt: chat.book ? chat.book.buyerConfirmedReceipt : false,
       salePending: chat.book ? chat.book.salePending : false,
       buyerId: chat.buyer._id.toString(),

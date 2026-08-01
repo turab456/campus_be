@@ -29,6 +29,7 @@ const listingSchema = new mongoose.Schema({
   flagReason: { type: String },
   approved: { type: Boolean, default: true },
   rejectReason: { type: String },
+  isDeleted: { type: Boolean, default: false },
   metadata: { type: mongoose.Schema.Types.Mixed, default: {} },
   lastEditNotificationAt: { type: Date },
 }, { timestamps: true });
@@ -37,5 +38,6 @@ const listingSchema = new mongoose.Schema({
 listingSchema.index({ seller: 1 });
 listingSchema.index({ isSold: 1 });
 listingSchema.index({ category: 1 });
+listingSchema.index({ isDeleted: 1 });
 
 module.exports = mongoose.model('Listing', listingSchema);

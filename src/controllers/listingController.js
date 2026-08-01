@@ -150,19 +150,35 @@ const getListing = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Listing not found or seller account is suspended' });
     }
 
-    // Optional auth check for viewer coordinates
+    // Optional auth check for viewer coordinates & identity
     let userCoords = null;
+    let viewerId = null;
+    let viewerRole = null;
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
       try {
         const token = authHeader.split(' ')[1];
         const decoded = jwt.verify(token, accessSecret);
+        viewerId = decoded.id;
+        viewerRole = decoded.role;
         const reqUser = await User.findById(decoded.id).select('coordinates');
         if (reqUser && reqUser.coordinates) {
           userCoords = reqUser.coordinates;
         }
       } catch (err) {
         // ignore token error
+      }
+    }
+
+    // If listing is deleted, restrict access to seller, buyer in active chat, or admin
+    if (listing.isDeleted) {
+      const isSeller = viewerId && listing.seller && listing.seller._id.toString() === viewerId;
+      const Chat = require('../models/Chat');
+      const isBuyerInChat = viewerId && await Chat.findOne({ book: listing._id, buyer: viewerId });
+      const isAdmin = viewerRole === 'admin';
+
+      if (!isSeller && !isBuyerInChat && !isAdmin) {
+        return res.status(404).json({ success: false, message: 'Listing not found or was deleted' });
       }
     }
 
@@ -377,7 +393,7 @@ const deleteListing = async (req, res) => {
     if (listing.seller.toString() !== req.user.id) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
-    await Listing.deleteOne({ _id: listing._id });
+    await Listing.updateOne({ _id: listing._id }, { isDeleted: true });
     // Invalidate listings caches
     await clearCache('listings:*');
     await clearCache(`user:profile:${req.user.id}`);
@@ -397,7 +413,7 @@ const searchListings = async (req, res) => {
   const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 20));
   const { search, category, condition, minPrice, maxPrice, sort } = req.query;
 
-  const filter = { flagged: { $ne: true } }; // Show all listings including sold ones, but not flagged ones
+  const filter = { flagged: { $ne: true }, isDeleted: { $ne: true } }; // Show all listings including sold ones, but not flagged or deleted ones
 
 
 

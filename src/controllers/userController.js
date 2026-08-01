@@ -136,7 +136,7 @@ const getUserDetails = async (req, res) => {
     
     // Fetch listings for this user
     const Listing = require('../models/Listing');
-    const listings = await Listing.find({ seller: user._id })
+    const listings = await Listing.find({ seller: user._id, isDeleted: { $ne: true } })
       .populate('seller', 'name avatarUrl')
       .populate('category', 'name');
       
