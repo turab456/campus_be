@@ -9,6 +9,7 @@ const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { getFromAddress } = require('../config/mail');
+const { OAuth2Client } = require('google-auth-library');
 
 // Helper to generate tokens
 const generateToken = (payload, secret, expiresIn) => {
@@ -100,6 +101,9 @@ const login = async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(401).json({ success: false, message: 'Invalid credentials' });
+    }
+    if (!user.password) {
+      return res.status(401).json({ success: false, message: 'This account uses Google Sign-In. Please log in with Google.' });
     }
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
@@ -254,6 +258,10 @@ const forgotPassword = async (req, res) => {
       return res.status(404).json({ success: false, message: 'No account with this email address exists.' });
     }
 
+    if (!user.password) {
+      return res.status(400).json({ success: false, message: 'This account uses Google Sign-In. Please sign in with Google.' });
+    }
+
     // Generate reset token and expires time (1 hour)
     const resetToken = crypto.randomBytes(20).toString('hex');
     user.resetPasswordToken = resetToken;
@@ -319,10 +327,138 @@ const resetPassword = async (req, res) => {
   }
 };
 
+// @desc   Google Sign-In
+// @route  POST /api/auth/google
+// @access Public
+const googleLogin = async (req, res) => {
+  const { idToken } = req.body;
+  if (!idToken) {
+    return res.status(400).json({ success: false, message: 'Google ID Token is required' });
+  }
+
+  try {
+    let payload;
+
+    // Support mock verification in development/testing mode for ease of local validation
+    if (process.env.NODE_ENV !== 'production' && idToken.startsWith('mock-google-token-')) {
+      const mockEmail = idToken.replace('mock-google-token-', '');
+      payload = {
+        sub: `google-mock-id-${mockEmail.replace(/[^a-zA-Z0-9]/g, '')}`,
+        email: mockEmail,
+        name: mockEmail.split('@')[0],
+        picture: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        email_verified: true
+      };
+    } else {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        return res.status(500).json({ success: false, message: 'Google Client ID is not configured on the backend.' });
+      }
+      const client = new OAuth2Client(clientId);
+      const ticket = await client.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+      payload = ticket.getPayload();
+    }
+
+    if (!payload || !payload.email) {
+      return res.status(400).json({ success: false, message: 'Invalid Google token payload.' });
+    }
+
+    const googleId = payload.sub;
+    const email = payload.email.toLowerCase();
+    const name = payload.name || email.split('@')[0];
+    const avatarUrl = payload.picture;
+
+    // Check Case 1: User already exists with the same email
+    let user = await User.findOne({ email });
+
+    if (user) {
+      // Link Google to this account if not already stored
+      if (!user.googleId) {
+        user.googleId = googleId;
+      }
+      // If user signed up with password, they might have provider = 'local'.
+      // Update/link if needed, but do not overwrite local credentials
+      if (!user.provider) {
+        user.provider = 'local'; // default
+      }
+      await user.save();
+    } else {
+      // Check Case 3: Create a new user
+      user = await User.create({
+        name,
+        email,
+        googleId,
+        provider: 'google',
+        avatarUrl,
+        isVerified: true // Google emails are already pre-verified by Google
+      });
+    }
+
+    // Safety: check if user is blocked or flagged (admin bypass allowed)
+    if (user.role !== 'admin') {
+      if (user.blocked) {
+        return res.status(403).json({
+          success: false,
+          blocked: true,
+          message: 'Your account is blocked due to suspicious activity. Please raise a ticket for reconsideration in the profile section.',
+          blockReason: user.blockReason
+        });
+      }
+      if (user.flagged) {
+        return res.status(403).json({
+          success: false,
+          flagged: true,
+          message: 'Your account is temporarily flagged for review due to suspicious activity. Please contact support.',
+          flagReason: user.flagReason
+        });
+      }
+    }
+
+    const accessToken = generateToken({ id: user._id, role: user.role }, accessSecret, accessExpiresIn);
+    const refreshToken = generateToken({ id: user._id }, refreshSecret, refreshExpiresIn);
+    
+    const isProd = process.env.NODE_ENV === 'production';
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      sameSite: isProd ? 'none' : 'lax',
+      secure: isProd,
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    });
+
+    res.json({
+      success: true,
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        institutionName: user.institutionName,
+        educationLevel: user.educationLevel,
+        academicDetails: user.academicDetails,
+        avatarUrl: user.avatarUrl,
+        addressLine: user.addressLine,
+        city: user.city,
+        state: user.state,
+        pincode: user.pincode,
+        country: user.country,
+        coordinates: user.coordinates,
+      }
+    });
+  } catch (error) {
+    logger.error('Google login error', error);
+    res.status(401).json({ success: false, message: 'Google authentication failed or token is invalid.' });
+  }
+};
+
 module.exports = { 
   register, 
   verifyEmail, 
   login, 
+  googleLogin,
   refreshToken, 
   logout, 
   resendVerification,

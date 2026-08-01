@@ -118,9 +118,16 @@ const validateSearch = [
   handleValidationErrors
 ];
 
+const validateGoogleLogin = [
+  body('idToken')
+    .notEmpty().withMessage('idToken is required'),
+  handleValidationErrors
+];
+
 module.exports = {
   validateRegister,
   validateLogin,
+  validateGoogleLogin,
   validateCreateListing,
   validateSendMessage,
   validateAddReview,
