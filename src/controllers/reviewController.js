@@ -55,7 +55,7 @@ exports.addReview = async (req, res) => {
       seller: sellerId,
       reviewer: reviewerId,
       rating: clampedRating,
-      comment: comment.substring(0, 500) // Enforce max length server-side
+      comment: comment ? comment.substring(0, 500) : '' // Enforce max length server-side
     });
     await review.save();
 
@@ -86,7 +86,7 @@ exports.addReview = async (req, res) => {
     emitToUser(sellerId, 'notification', {
       type: 'review',
       title: 'New Review Received',
-      body: `${req.user.name || 'A user'} rated you ${clampedRating} stars: "${comment.substring(0, 40)}${comment.length > 40 ? '...' : ''}"`
+      body: `${req.user.name || 'A user'} rated you ${clampedRating} stars: "${comment ? (comment.substring(0, 40) + (comment.length > 40 ? '...' : '')) : 'No comment'}"`
     });
 
     // Invalidate cached profile details for the seller

@@ -37,6 +37,7 @@ const createListing = async (req, res) => {
     department,
     semester,
     pickupLocation,
+    pickupCoordinates,
     college,
     isFeatured,
     isPopular,
@@ -48,6 +49,14 @@ const createListing = async (req, res) => {
       metadata = JSON.parse(metadata);
     } catch (e) {
       metadata = {};
+    }
+  }
+
+  if (typeof pickupCoordinates === 'string') {
+    try {
+      pickupCoordinates = JSON.parse(pickupCoordinates);
+    } catch (e) {
+      pickupCoordinates = undefined;
     }
   }
 
@@ -116,6 +125,7 @@ const createListing = async (req, res) => {
       department,
       semester,
       pickupLocation,
+      pickupCoordinates,
       college,
       // isFeatured and isPopular are admin-only fields — never trust client values
       isFeatured: false,
@@ -215,6 +225,7 @@ const updateListing = async (req, res) => {
     department,
     semester,
     pickupLocation,
+    pickupCoordinates,
     college,
     isFeatured,
     isPopular,
@@ -228,6 +239,14 @@ const updateListing = async (req, res) => {
       metadata = JSON.parse(metadata);
     } catch (e) {
       metadata = {};
+    }
+  }
+
+  if (typeof pickupCoordinates === 'string') {
+    try {
+      pickupCoordinates = JSON.parse(pickupCoordinates);
+    } catch (e) {
+      pickupCoordinates = undefined;
     }
   }
 
@@ -289,6 +308,7 @@ const updateListing = async (req, res) => {
     if (department) listing.department = department;
     if (semester) listing.semester = semester;
     if (pickupLocation) listing.pickupLocation = pickupLocation;
+    if (pickupCoordinates !== undefined) listing.pickupCoordinates = pickupCoordinates;
     if (college) listing.college = college;
     // NOTE: isFeatured, isPopular, isSold, and status are privileged fields.
     // They must NEVER be modified via the user-facing update endpoint.

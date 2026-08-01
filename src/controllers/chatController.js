@@ -12,7 +12,7 @@ exports.getChats = async (req, res) => {
     const chats = await Chat.find({
       $or: [{ buyer: userId }, { seller: userId }]
     })
-      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted')
+      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted pickupLocation pickupCoordinates')
       .populate('buyer', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
       .populate('seller', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
       .sort({ lastMessageTime: -1 });
@@ -34,6 +34,8 @@ exports.getChats = async (req, res) => {
           bookIsDeleted: c.book ? !!c.book.isDeleted : true,
           buyerConfirmedReceipt: c.book ? c.book.buyerConfirmedReceipt : false,
           salePending: c.book ? c.book.salePending : false,
+          pickupLocation: c.book ? c.book.pickupLocation : '',
+          pickupCoordinates: c.book ? c.book.pickupCoordinates : null,
           buyerId: c.buyer._id.toString(),
           sellerId: c.seller._id.toString(),
           otherParticipant: {
@@ -87,7 +89,7 @@ exports.createOrGetChat = async (req, res) => {
       buyer: buyerId,
       seller: sellerId
     })
-      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted')
+      .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted pickupLocation pickupCoordinates')
       .populate('buyer', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
       .populate('seller', 'name avatarUrl rating reviewsCount institutionName flagged blocked');
 
@@ -106,7 +108,7 @@ exports.createOrGetChat = async (req, res) => {
 
       // Populate fresh doc
       chat = await Chat.findById(chat._id)
-        .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted')
+        .populate('book', 'title price images isSold buyerConfirmedReceipt salePending isDeleted pickupLocation pickupCoordinates')
         .populate('buyer', 'name avatarUrl rating reviewsCount institutionName flagged blocked')
         .populate('seller', 'name avatarUrl rating reviewsCount institutionName flagged blocked');
     }
@@ -129,6 +131,8 @@ exports.createOrGetChat = async (req, res) => {
       bookIsDeleted: chat.book ? !!chat.book.isDeleted : true,
       buyerConfirmedReceipt: chat.book ? chat.book.buyerConfirmedReceipt : false,
       salePending: chat.book ? chat.book.salePending : false,
+      pickupLocation: chat.book ? chat.book.pickupLocation : '',
+      pickupCoordinates: chat.book ? chat.book.pickupCoordinates : null,
       buyerId: chat.buyer._id.toString(),
       sellerId: chat.seller._id.toString(),
       otherParticipant: {

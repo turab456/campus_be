@@ -15,6 +15,10 @@ const listingSchema = new mongoose.Schema({
   department: { type: String },
   semester: { type: Number },
   pickupLocation: { type: String },
+  pickupCoordinates: {
+    lat: { type: Number },
+    lng: { type: Number }
+  },
   isFeatured: { type: Boolean, default: false },
   isPopular: { type: Boolean, default: false },
   isSold: { type: Boolean, default: false },
