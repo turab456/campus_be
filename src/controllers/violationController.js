@@ -160,6 +160,34 @@ exports.markListingAsSold = async (req, res) => {
     const chatDoc = await Chat.findOne({ book: listing._id, buyer: targetBuyerId });
     const relatedChatId = chatDoc ? chatDoc._id : undefined;
 
+    // Send a system message inside the chat thread
+    if (chatDoc) {
+      const systemMessageText = `Seller marked this item as sold. Please confirm from the menu button above.`;
+      
+      const msg = await Message.create({
+        chat: chatDoc._id,
+        sender: sellerId,
+        text: systemMessageText
+      });
+
+      chatDoc.lastMessage = msg.text;
+      chatDoc.lastMessageTime = msg.timestamp;
+      chatDoc.unreadBuyer = true;
+      await chatDoc.save();
+
+      const mappedMessage = {
+        id: msg._id.toString(),
+        chatId: msg.chat.toString(),
+        senderId: msg.sender.toString(),
+        text: msg.text,
+        timestamp: msg.timestamp.toISOString()
+      };
+      
+      const { emitToUser } = require('../utils/socket');
+      emitToUser(targetBuyerId.toString(), 'message', mappedMessage);
+      emitToUser(sellerId.toString(), 'message', mappedMessage);
+    }
+
     // Notify buyer to confirm receipt
     await createNotification({
       recipient: targetBuyerId,

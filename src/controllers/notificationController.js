@@ -25,7 +25,16 @@ exports.createNotification = async ({ recipient, type, title, message, relatedLi
     const recipientIdStr = recipient.toString();
 
     // Emit real-time notification event for bell icon updates
-    emitToUser(recipientIdStr, 'notification', notif);
+    emitToUser(recipientIdStr, 'notification', {
+      id: notif._id.toString(),
+      type: notif.type,
+      title: notif.title,
+      body: notif.message,
+      message: notif.message,
+      relatedChat: notif.relatedChat ? notif.relatedChat.toString() : undefined,
+      relatedListing: notif.relatedListing ? notif.relatedListing.toString() : undefined,
+      createdAt: notif.createdAt
+    });
 
     // Emit chat status update event if related to a transaction
     const saleEvents = ['sale_pending', 'sale_confirmed', 'sale_denied', 'sale_canceled'];
