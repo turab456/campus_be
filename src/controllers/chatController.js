@@ -18,7 +18,7 @@ exports.getChats = async (req, res) => {
       .sort({ lastMessageTime: -1 });
 
     const mappedChats = chats
-      .filter(c => c.buyer && c.seller && (!c.book || !c.book.buyerConfirmedReceipt))
+      .filter(c => c.buyer && c.seller)
       .map(c => {
         const isBuyer = c.buyer._id.toString() === userId;
         const otherUser = isBuyer ? c.seller : c.buyer;
