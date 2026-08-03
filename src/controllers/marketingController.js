@@ -112,6 +112,18 @@ const recordMarketingEvent = async ({
   const sourceVisitorId = visitorId || (userId ? `${userId}-legacy` : undefined);
   const visitor = await ensureVisitorRecord({ visitorId: sourceVisitorId, userId, payload, req });
 
+  if (eventType === 'visited') {
+    const recentVisitedEvent = await MarketingEvent.findOne({
+      visitorId: sourceVisitorId,
+      eventType: 'visited',
+      occurredAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) }
+    }).sort({ occurredAt: -1 }).lean();
+
+    if (recentVisitedEvent) {
+      return recentVisitedEvent;
+    }
+  }
+
   const eventDoc = await MarketingEvent.create({
     visitorId: sourceVisitorId,
     userId,
