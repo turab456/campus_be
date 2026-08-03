@@ -17,6 +17,7 @@ const {
 const { logger } = require('../utils/logger');
 const { createNotification } = require('./notificationController');
 const { clearCache } = require('../utils/redis');
+const { recordMarketingEvent } = require('./marketingController');
 
 // @desc   Report unwanted/spam message
 // @route  POST /api/violations/report-message
@@ -255,6 +256,17 @@ exports.confirmReceipt = async (req, res) => {
     listing.confirmedAt = new Date();
 
     await listing.save();
+
+    const existingSalesCount = await Listing.countDocuments({ seller: listing.seller, buyerConfirmedReceipt: true, isDeleted: { $ne: true } });
+    const eventType = existingSalesCount > 1 ? 'second_sale' : 'sale_completed';
+    await recordMarketingEvent({
+      visitorId: req.body.visitorId || req.cookies?.revoshelf_visitor_id,
+      userId: buyerId,
+      eventType,
+      metadata: { listingId: listing._id.toString(), sellerId: listing.seller.toString() },
+      payload: req.body,
+      req
+    });
 
     const chatDoc = await Chat.findOne({ book: listing._id, buyer: buyerId });
     const relatedChatId = chatDoc ? chatDoc._id : undefined;

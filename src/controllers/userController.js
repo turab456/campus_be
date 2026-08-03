@@ -5,6 +5,7 @@ const { getCache, setCache, clearCache } = require('../utils/redis');
 const cloudinaryHelper = require('../helpers/cloudinaryHelper');
 
 const { geocodeAddress } = require('../utils/geocoder');
+const { recordMarketingEvent } = require('./marketingController');
 
 const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
 
@@ -106,6 +107,13 @@ const updateProfile = async (req, res) => {
     }
 
     const user = await User.findByIdAndUpdate(req.user.id, updateFields, { new: true, runValidators: true }).select('-password');
+    await recordMarketingEvent({
+      visitorId: req.body.visitorId || req.cookies?.revoshelf_visitor_id,
+      userId: req.user.id,
+      eventType: 'profile_completed',
+      payload: req.body,
+      req
+    });
     // Invalidate profile cache
     await clearCache(`user:profile:${req.user.id}`);
     await clearCache('listings:*');

@@ -51,6 +51,25 @@ const userSchema = new mongoose.Schema({
       auth: { type: String, required: true }
     }
   }],
+  marketing: {
+    visitorId: { type: String },
+    source: { type: String },
+    utmSource: { type: String },
+    utmMedium: { type: String },
+    utmCampaign: { type: String },
+    utmTerm: { type: String },
+    utmContent: { type: String },
+    ref: { type: String },
+    referrer: { type: String },
+    landingPage: { type: String },
+    firstVisitAt: { type: Date },
+    device: { type: String },
+    browser: { type: String },
+    operatingSystem: { type: String },
+    country: { type: String },
+    state: { type: String },
+    city: { type: String }
+  },
 }, { timestamps: true });
 
 // Optimize query performance for user restrictions

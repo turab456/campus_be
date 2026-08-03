@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const Chat = require('../models/Chat');
 const Listing = require('../models/Listing');
 const User = require('../models/User');
+const { recordMarketingEvent } = require('./marketingController');
 
 // Get all chats for logged-in user
 exports.getChats = async (req, res) => {
@@ -116,6 +117,15 @@ exports.createOrGetChat = async (req, res) => {
     if (!chat.buyer || !chat.seller) {
       return res.status(404).json({ success: false, message: 'Chat participant was deleted or not found' });
     }
+
+    await recordMarketingEvent({
+      visitorId: req.body.visitorId || req.cookies?.revoshelf_visitor_id,
+      userId: buyerId,
+      eventType: 'chat_started',
+      metadata: { chatId: chat._id.toString(), bookId: bookId },
+      payload: req.body,
+      req
+    });
 
     const isBuyer = chat.buyer._id.toString() === buyerId;
     const otherUser = isBuyer ? chat.seller : chat.buyer;

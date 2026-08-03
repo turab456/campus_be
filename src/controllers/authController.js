@@ -10,6 +10,7 @@ const path = require('path');
 const fs = require('fs');
 const { getFromAddress } = require('../config/mail');
 const { OAuth2Client } = require('google-auth-library');
+const { attachVisitorToUser, recordMarketingEvent } = require('./marketingController');
 
 // Helper to generate tokens
 const generateToken = (payload, secret, expiresIn) => {
@@ -21,12 +22,20 @@ const generateToken = (payload, secret, expiresIn) => {
 // @access Public
 const register = async (req, res) => {
   const { name, email, password } = req.body;
+  const visitorId = req.body.visitorId || req.cookies?.revoshelf_visitor_id;
   try {
     const existing = await User.findOne({ email });
     if (existing) {
       return res.status(400).json({ success: false, message: 'User already exists' });
     }
     const user = await User.create({ name, email, password });
+    await recordMarketingEvent({
+      visitorId,
+      userId: user._id,
+      eventType: 'signup_started',
+      payload: req.body,
+      req
+    });
     // Send verification email (simple token link)
     const verifyToken = crypto.randomBytes(32).toString('hex');
     const verificationUrl = `${process.env.CLIENT_URL}/verify-email?token=${verifyToken}&id=${user._id}`;
@@ -54,6 +63,16 @@ const register = async (req, res) => {
     } catch (queueError) {
       logger.error(`Failed to queue verification email. Error: ${queueError.stack || queueError.message}`);
     }
+
+    await attachVisitorToUser({ userId: user._id, visitorId });
+    await recordMarketingEvent({
+      visitorId,
+      userId: user._id,
+      eventType: 'registration_completed',
+      payload: req.body,
+      req
+    });
+
     res.status(201).json({ success: true, message: 'Registration successful' });
   } catch (error) {
     logger.error('Register error', error);
@@ -85,6 +104,13 @@ const verifyEmail = async (req, res) => {
     user.verificationToken = undefined;
     user.verificationTokenExpiresAt = undefined;
     await user.save();
+    await recordMarketingEvent({
+      visitorId: user.marketing?.visitorId || req.query.visitorId,
+      userId: user._id,
+      eventType: 'email_verified',
+      payload: req.query,
+      req
+    });
     res.json({ success: true, message: 'Email verified. You can now log in.' });
   } catch (error) {
     logger.error('Verify email error', error);

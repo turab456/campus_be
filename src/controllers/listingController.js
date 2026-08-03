@@ -13,6 +13,7 @@ const jwt = require('jsonwebtoken');
 const { accessSecret } = require('../config/jwt');
 const { getDistanceInKm } = require('../utils/geocoder');
 const { createNotification } = require('./notificationController');
+const { recordMarketingEvent } = require('./marketingController');
 
 /**
  * Escape special regex characters from user input to prevent ReDoS / NoSQL injection.
@@ -112,6 +113,7 @@ const createListing = async (req, res) => {
       }
     }
 
+    const existingListingCount = await Listing.countDocuments({ seller: req.user.id, isDeleted: { $ne: true } });
     const listing = await Listing.create({
       title,
       description,
@@ -131,6 +133,15 @@ const createListing = async (req, res) => {
       isFeatured: false,
       isPopular: false,
       metadata: metadata || {}
+    });
+    const eventType = existingListingCount >= 1 ? 'second_listing' : 'listing_created';
+    await recordMarketingEvent({
+      visitorId: req.body.visitorId || req.cookies?.revoshelf_visitor_id,
+      userId: req.user.id,
+      eventType,
+      metadata: { listingId: listing._id.toString() },
+      payload: req.body,
+      req
     });
     // Invalidate listings caches
     await clearCache('listings:*');

@@ -8,6 +8,7 @@ const FraudReport = require('../models/FraudReport');
 const { logger } = require('../utils/logger');
 const { sendPushNotification } = require('../utils/fcm');
 const { clearCache } = require('../utils/redis');
+const { recordMarketingEvent } = require('./marketingController');
 
 // Dashboard
 exports.getDashboard = async (req, res) => {
@@ -346,6 +347,14 @@ exports.approveListing = async (req, res) => {
     }
 
     logger.info(`Listing ${listing._id} approved`);
+
+    await recordMarketingEvent({
+      userId: listing.seller,
+      eventType: 'listing_approved',
+      metadata: { listingId: listing._id.toString() },
+      payload: { listingId: listing._id.toString() },
+      req
+    });
 
     await clearCache('listings:*');
 
