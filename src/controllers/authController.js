@@ -206,7 +206,13 @@ const refreshToken = async (req, res) => {
   }
   try {
     const decoded = jwt.verify(token, refreshSecret);
-    const accessToken = generateToken({ id: decoded.id }, accessSecret, accessExpiresIn);
+    const user = await User.findById(decoded.id).select('role').lean();
+
+    if (!user) {
+      return res.status(401).json({ success: false, message: 'Invalid refresh token' });
+    }
+
+    const accessToken = generateToken({ id: decoded.id, role: user.role }, accessSecret, accessExpiresIn);
     res.json({ success: true, accessToken });
   } catch (err) {
     logger.error('Refresh token error', err);

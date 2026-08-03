@@ -16,7 +16,7 @@ const router = express.Router();
 
 router.post('/track-visit', trackVisit);
 router.post('/track-event', trackEvent);
-
+    
 router.get('/admin/overview', protect, isAdmin, getMarketingOverview);
 router.get('/admin/sources', protect, isAdmin, getMarketingSources);
 router.get('/admin/campaigns', protect, isAdmin, getMarketingCampaigns);
