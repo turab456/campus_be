@@ -353,17 +353,17 @@ const getMarketingSources = async (req, res) => {
           },
           listings: {
             $sum: {
-              $cond: [{ $ne: ['$funnel.firstListingCreatedAt', null] }, 1, 0]
+              $cond: [{ $ne: [{ $ifNull: ['$funnel.firstListingCreatedAt', null] }, null] }, 1, 0]
             }
           },
           chats: {
             $sum: {
-              $cond: [{ $ne: ['$funnel.firstChatStartedAt', null] }, 1, 0]
+              $cond: [{ $ne: [{ $ifNull: ['$funnel.firstChatStartedAt', null] }, null] }, 1, 0]
             }
           },
           sales: {
             $sum: {
-              $cond: [{ $ne: ['$funnel.firstSaleCompletedAt', null] }, 1, 0]
+              $cond: [{ $ne: [{ $ifNull: ['$funnel.firstSaleCompletedAt', null] }, null] }, 1, 0]
             }
           }
         }
@@ -389,8 +389,8 @@ const getMarketingCampaigns = async (req, res) => {
           _id: '$utmCampaign',
           visitors: { $sum: 1 },
           users: { $sum: { $cond: [{ $ne: ['$userId', null] }, 1, 0] } },
-          listings: { $sum: { $cond: [{ $ne: ['$funnel.firstListingCreatedAt', null] }, 1, 0] } },
-          sales: { $sum: { $cond: [{ $ne: ['$funnel.firstSaleCompletedAt', null] }, 1, 0] } }
+          listings: { $sum: { $cond: [{ $ne: [{ $ifNull: ['$funnel.firstListingCreatedAt', null] }, null] }, 1, 0] } },
+          sales: { $sum: { $cond: [{ $ne: [{ $ifNull: ['$funnel.firstSaleCompletedAt', null] }, null] }, 1, 0] } }
         }
       },
       { $sort: { visitors: -1 } }
@@ -414,8 +414,8 @@ const getMarketingReferrals = async (req, res) => {
           _id: '$ref',
           visitors: { $sum: 1 },
           registrations: { $sum: { $cond: [{ $ne: ['$userId', null] }, 1, 0] } },
-          listings: { $sum: { $cond: [{ $ne: ['$funnel.firstListingCreatedAt', null] }, 1, 0] } },
-          sales: { $sum: { $cond: [{ $ne: ['$funnel.firstSaleCompletedAt', null] }, 1, 0] } }
+          listings: { $sum: { $cond: [{ $ne: [{ $ifNull: ['$funnel.firstListingCreatedAt', null] }, null] }, 1, 0] } },
+          sales: { $sum: { $cond: [{ $ne: [{ $ifNull: ['$funnel.firstSaleCompletedAt', null] }, null] }, 1, 0] } }
         }
       },
       { $sort: { visitors: -1 } }
