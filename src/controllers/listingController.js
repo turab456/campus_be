@@ -207,10 +207,16 @@ const getListing = async (req, res) => {
     }
 
     const listingObj = listing.toObject();
-    if (userCoords && listing.seller && listing.seller.coordinates) {
-      const dist = getDistanceInKm(userCoords.lat, userCoords.lng, listing.seller.coordinates.lat, listing.seller.coordinates.lng);
-      listingObj.distanceKm = parseFloat(dist.toFixed(1));
-      listingObj.isNearMe = dist <= 5;
+    if (userCoords) {
+      const targetCoords = (listing.pickupCoordinates && listing.pickupCoordinates.lat !== undefined && listing.pickupCoordinates.lng !== undefined)
+        ? listing.pickupCoordinates
+        : (listing.seller && listing.seller.coordinates);
+
+      if (targetCoords && targetCoords.lat !== undefined && targetCoords.lng !== undefined) {
+        const dist = getDistanceInKm(userCoords.lat, userCoords.lng, targetCoords.lat, targetCoords.lng);
+        listingObj.distanceKm = parseFloat(dist.toFixed(1));
+        listingObj.isNearMe = dist <= 5;
+      }
     }
 
     res.json({ success: true, listing: listingObj });
@@ -547,7 +553,36 @@ const searchListings = async (req, res) => {
         })
         .map(s => s._id);
 
-      filter.seller = { $in: nearSellerIds, $nin: restrictedUserIds };
+      // Find listings with pickupCoordinates within 10km
+      const listingsWithCoords = await Listing.find({
+        isDeleted: { $ne: true },
+        'pickupCoordinates.lat': { $exists: true, $ne: null }
+      }).select('pickupCoordinates');
+
+      const nearListingIdsByPickup = listingsWithCoords
+        .filter(l => {
+          if (!l.pickupCoordinates || l.pickupCoordinates.lat === undefined || l.pickupCoordinates.lng === undefined) return false;
+          const dist = getDistanceInKm(userCoords.lat, userCoords.lng, l.pickupCoordinates.lat, l.pickupCoordinates.lng);
+          return dist <= 10;
+        })
+        .map(l => l._id);
+
+      // Union condition: match seller proximity OR direct listing pickup proximity
+      filter.$or = [
+        { 
+          _id: { $in: nearListingIdsByPickup },
+          seller: { $nin: restrictedUserIds }
+        },
+        { 
+          seller: { $in: nearSellerIds, $nin: restrictedUserIds },
+          $or: [
+            { pickupCoordinates: { $exists: false } },
+            { 'pickupCoordinates.lat': null }
+          ]
+        }
+      ];
+      // Remove direct seller filter as it is now encapsulated inside the $or branches
+      delete filter.seller;
     }
 
     const listings = await Listing.find(filter)
@@ -560,10 +595,16 @@ const searchListings = async (req, res) => {
 
     const populatedListings = listings.map(l => {
       const lObj = l.toObject();
-      if (userCoords && l.seller && l.seller.coordinates) {
-        const dist = getDistanceInKm(userCoords.lat, userCoords.lng, l.seller.coordinates.lat, l.seller.coordinates.lng);
-        lObj.distanceKm = parseFloat(dist.toFixed(1));
-        lObj.isNearMe = dist <= 5;
+      if (userCoords) {
+        const targetCoords = (l.pickupCoordinates && l.pickupCoordinates.lat !== undefined && l.pickupCoordinates.lng !== undefined)
+          ? l.pickupCoordinates
+          : (l.seller && l.seller.coordinates);
+
+        if (targetCoords && targetCoords.lat !== undefined && targetCoords.lng !== undefined) {
+          const dist = getDistanceInKm(userCoords.lat, userCoords.lng, targetCoords.lat, targetCoords.lng);
+          lObj.distanceKm = parseFloat(dist.toFixed(1));
+          lObj.isNearMe = dist <= 5;
+        }
       }
       return lObj;
     });
